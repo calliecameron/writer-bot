@@ -1,4 +1,5 @@
-from typing import Optional, Set, Tuple, Union
+from typing import Optional, Set, Tuple
+from abc import ABC, abstractmethod
 import asyncio
 import os
 import pathlib
@@ -13,20 +14,74 @@ from writer_bot import utils
 
 
 WORDCOUNT_CONTENT_TYPES = frozenset(["text/plain", "application/pdf"])
-LOG = utils.Logger(__name__)
+WORDCOUNT_MAX_SIZE = 30 * 1024 * 1024
+WORDCOUNT_SCRIPT = str(pathlib.Path(__file__).resolve().parent.parent / "bin" / "wordcount.sh")
+
+_log = utils.Logger(__name__)
 
 
-class Story:
-    def __init__(
-        self,
-        wordcount_script: str,
-        src: Union[discord.Attachment, str],
-        content_type: str,
-    ) -> None:
+class FileSrc(ABC):
+    def __init__(self, kind: str, url: str, content_type: str, size: Optional[int]) -> None:
         super().__init__()
-        self._wordcount_script = wordcount_script
-        self._src = src
+        self._kind = kind
+        self._url = url
         self._content_type = content_type
+        self._size = size
+
+    @property
+    def content_type(self) -> str:
+        return self._content_type
+
+    @property
+    def description(self) -> str:
+        return (
+            f"{self._kind} {self._url} ({self._content_type}, "
+            f"{self._size if self._size else 'unknown'} bytes)"
+        )
+
+    def is_valid(self) -> bool:
+        return self._content_type in WORDCOUNT_CONTENT_TYPES and (
+            not self._size or self._size <= WORDCOUNT_MAX_SIZE
+        )
+
+    @abstractmethod
+    async def download_to(self, filename: str) -> None:
+        raise NotImplementedError
+
+
+class Link(FileSrc):
+    def __init__(self, url: str, content_type: str, size: Optional[int]) -> None:
+        super().__init__("link", url, content_type, size)
+
+    async def download_to(self, filename: str) -> None:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(self._url) as response:
+                data = await response.read()
+        with open(filename, mode="wb") as f:
+            f.write(data)
+
+
+class Attachment(FileSrc):
+    def __init__(self, attachment: discord.Attachment) -> None:
+        content_type = ""
+        if attachment.content_type:
+            content_type = attachment.content_type.split(";")[0].strip()
+        super().__init__(
+            "attachment",
+            attachment.url,
+            content_type,
+            attachment.size,
+        )
+        self._attachment = attachment
+
+    async def download_to(self, filename: str) -> None:
+        await self._attachment.save(pathlib.PurePath(filename))
+
+
+class StoryFile:
+    def __init__(self, src: FileSrc) -> None:
+        super().__init__()
+        self._src = src
 
     async def wordcount(self) -> int:
         filename = None
@@ -34,39 +89,23 @@ class Story:
             with tempfile.NamedTemporaryFile(delete=False) as f:
                 filename = f.name
 
-            await self._download(filename)
-            return await self._wordcount(filename)
+            _log.info("downloading %s to %s...", self._src.description, filename)
+            await self._src.download_to(filename)
+            _log.info("download finished")
+            return await self._raw_wordcount(filename)
         except Exception as e:
-            LOG.info(f"wordcount failed: {e}")
+            _log.info(f"wordcount failed: {e}")
             raise
         finally:
             if filename:
                 os.remove(filename)
-                LOG.info(f"deleted {filename}")
+                _log.info(f"deleted {filename}")
 
-    async def _download(self, filename: str) -> None:
-        if isinstance(self._src, discord.Attachment):
-            LOG.info(
-                f"downloading attachment {self._src.url} ({self._src.size} bytes) to {filename}..."
-            )
-            await self._src.save(pathlib.PurePath(filename))
-            LOG.info("download finished")
-        elif isinstance(self._src, str):
-            LOG.info(f"downloading link {self._src} to {filename}...")
-            async with aiohttp.ClientSession() as session:
-                async with session.get(self._src) as response:
-                    data = await response.read()
-            with open(filename, mode="wb") as f:
-                f.write(data)
-            LOG.info("download finished")
-        else:
-            raise ValueError(f"unknown src type {type(self._src)}")
-
-    async def _wordcount(self, filename: str) -> int:
+    async def _raw_wordcount(self, filename: str) -> int:
         p = await asyncio.create_subprocess_exec(
-            self._wordcount_script,
+            WORDCOUNT_SCRIPT,
             filename,
-            self._content_type,
+            self._src.content_type,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -78,15 +117,32 @@ class Story:
         wordcount = int(stdout.decode("utf-8").strip())
         if wordcount < 0:
             raise ValueError(f"wordcount must be positive, got {wordcount}")
-        LOG.info(f"wordcount {wordcount}")
+        _log.info(f"wordcount {wordcount}")
         return wordcount
+
+    @staticmethod
+    async def from_message(m: discord.Message) -> "Optional[StoryFile]":
+        for a in m.attachments:
+            src: FileSrc = Attachment(a)
+            if src.is_valid():
+                return StoryFile(src)
+
+        for url in urlextract.URLExtract().find_urls(
+            m.content, only_unique=True, with_schema_only=True
+        ):
+            async with aiohttp.ClientSession() as session:
+                async with session.head(url) as response:
+                    src = Link(url, response.content_type, response.content_length)
+                    if src.is_valid():
+                        return StoryFile(src)
+
+        return None
 
 
 class Stories(commands.Cog):
-    def __init__(self, bot: commands.Bot, wordcount_script: str, story_forum_id: int) -> None:
+    def __init__(self, bot: commands.Bot, story_forum_id: int) -> None:
         super().__init__()
         self._bot = bot
-        self._wordcount_script = wordcount_script
         self._story_forum_id = story_forum_id
         self._story_forum: discord.ForumChannel = None  # type: ignore
         self._actively_processing: Set[int] = set()
@@ -131,49 +187,31 @@ class Stories(commands.Cog):
             return
         with utils.LogContext(f"thread {thread.id} ({thread.name})"):
             self._actively_processing.add(thread.id)
-            LOG.info("processing...")
+            _log.info("processing...")
             try:
                 m = thread.starter_message or await thread.fetch_message(thread.id)
 
-                story = await self.choose_file(m)
+                story = await StoryFile.from_message(m)
                 if not story:
-                    LOG.info("no valid files")
+                    _log.info("no valid files")
                     return
 
                 wordcount = await story.wordcount()
                 await self.set_wordcount(thread, wordcount)
             finally:
                 self._actively_processing.remove(thread.id)
-                LOG.info("finished")
-
-    async def choose_file(self, m: discord.Message) -> Optional[Story]:
-        for a in m.attachments:
-            if not a.content_type:
-                continue
-            content_type = a.content_type.split(";")[0]
-            if content_type in WORDCOUNT_CONTENT_TYPES:
-                return Story(self._wordcount_script, a, content_type)
-
-        for url in urlextract.URLExtract().find_urls(
-            m.content, only_unique=True, with_schema_only=True
-        ):
-            async with aiohttp.ClientSession() as session:
-                async with session.head(url) as response:
-                    if response.content_type in WORDCOUNT_CONTENT_TYPES:
-                        return Story(self._wordcount_script, url, response.content_type)
-
-        return None
+                _log.info("finished")
 
     async def set_wordcount(self, thread: discord.Thread, wordcount: int) -> None:
         wordcount = self.rounded_wordcount(wordcount)
         title, existing_wordcount = self.existing_wordcount(thread.name)
         if wordcount == existing_wordcount:
-            LOG.info(f"existing rounded wordcount in title ({wordcount}) is correct")
+            _log.info(f"existing rounded wordcount in title ({wordcount}) is correct")
             return
         if wordcount > 0:
             title = f"{title} [{wordcount} words]"
         await thread.edit(name=title)
-        LOG.info(f"rounded wordcount in title set to {wordcount}")
+        _log.info(f"rounded wordcount in title set to {wordcount}")
 
     def rounded_wordcount(self, wordcount: int) -> int:
         if wordcount < 100:
