@@ -1,0 +1,4 @@
+aiohttp == 3.8.4
+discord.py == 2.3.0
+dpytest == 0.6.8
+urlextract == 1.8.0
