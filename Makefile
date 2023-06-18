@@ -8,3 +8,7 @@ lint:
 	pylint --score n *.py
 	flake8 *.py
 	black --check *.py
+
+.PHONY: clean
+clean:
+	rm -rf *~ __pycache__
