@@ -1,5 +1,5 @@
 .PHONY: all
-all: lint
+all: lint test
 
 .PHONY: lint
 lint:
@@ -9,6 +9,10 @@ lint:
 	flake8 '--filename=*.py,*.pyi'
 	black --check .
 	mypy --strict .
+
+.PHONY: test
+test:
+	pytest tests
 
 .PHONY: clean
 clean:
