@@ -9,7 +9,7 @@ import aiohttp
 import discord
 from discord.ext import commands
 import urlextract
-import utils
+from writer_bot import utils
 
 
 WORDCOUNT_CONTENT_TYPES = frozenset(["text/plain", "application/pdf"])

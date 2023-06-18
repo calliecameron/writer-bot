@@ -5,7 +5,7 @@ import argparse
 import logging
 import discord
 from discord.ext import commands
-import stories
+import writer_bot.stories
 
 
 class Bot(commands.Bot):
@@ -17,7 +17,9 @@ class Bot(commands.Bot):
         self._story_forum_id = story_forum_id
 
     async def on_ready(self) -> None:
-        await self.add_cog(stories.Stories(self, self._wordcount_script, self._story_forum_id))
+        await self.add_cog(
+            writer_bot.stories.Stories(self, self._wordcount_script, self._story_forum_id)
+        )
         logging.getLogger(__name__).info("Connected as user: %s", self.user)
 
 
