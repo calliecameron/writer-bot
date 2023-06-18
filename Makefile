@@ -3,12 +3,12 @@ all: lint
 
 .PHONY: lint
 lint:
-	shellcheck *.sh
-	shfmt -l -d -i 4 *.sh
-	pylint --score n *.py
+	shellcheck wordcount.sh
+	shfmt -l -d -i 4 wordcount.sh
+	pylint --score n --recursive y .
 	flake8 '--filename=*.py,*.pyi'
 	black --check .
-	mypy --strict *.py
+	mypy --strict .
 
 .PHONY: clean
 clean:
