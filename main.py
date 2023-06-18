@@ -2,6 +2,7 @@
 
 from typing import Any
 import argparse
+import logging
 import discord
 from discord.ext import commands
 import stories
@@ -17,7 +18,7 @@ class Bot(commands.Bot):
 
     async def on_ready(self) -> None:
         await self.add_cog(stories.Stories(self, self._wordcount_script, self._story_forum_id))
-        print("Connected as user: %s" % self.user)
+        logging.getLogger(__name__).info("Connected as user: %s", self.user)
 
 
 def main() -> None:
@@ -36,7 +37,7 @@ def main() -> None:
 
     client = Bot(args.wordcount_script, args.story_forum_id, "$", intents=intents)
 
-    client.run(token)
+    client.run(token, root_logger=True)
 
 
 if __name__ == "__main__":
