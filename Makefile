@@ -6,8 +6,9 @@ lint:
 	shellcheck *.sh
 	shfmt -l -d -i 4 *.sh
 	pylint --score n *.py
-	flake8 *.py
-	black --check *.py
+	flake8 '--filename=*.py,*.pyi'
+	black --check .
+	mypy --strict *.py
 
 .PHONY: clean
 clean:

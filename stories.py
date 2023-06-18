@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from typing import Optional, Set, Tuple, Union
 import asyncio
 import os
 import pathlib
@@ -98,9 +98,9 @@ class Stories(commands.Cog):
         self._wordcount_script = wordcount_script
         self._story_forum_id = story_forum_id
         self._story_forum: discord.ForumChannel = None  # type: ignore
-        self._actively_processing = set()
+        self._actively_processing: Set[int] = set()
 
-    async def cog_load(self):
+    async def cog_load(self) -> None:
         story_forum = await self._bot.fetch_channel(self._story_forum_id)
         if not isinstance(story_forum, discord.ForumChannel):
             raise ValueError("story_forum_id must be a forum channel")
@@ -129,7 +129,7 @@ class Stories(commands.Cog):
             await self.process_thread(channel)
 
     @commands.command()
-    async def refresh(self, ctx: commands.Context) -> None:
+    async def refresh(self, ctx: commands.Context[commands.Bot]) -> None:
         await ctx.reply("Refreshing all stories in the forum...")
         for thread in self._story_forum.threads:
             await self.process_thread(thread)
