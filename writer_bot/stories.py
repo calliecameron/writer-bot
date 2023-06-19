@@ -174,7 +174,7 @@ class StoryThread:
 
     async def update(self) -> None:
         with utils.LogContext(f"thread {self._thread.id} ({self._thread.name})"):
-            _log.info("processing...")
+            _log.info("updating...")
             try:
                 m = self._thread.starter_message or await self._thread.fetch_message(
                     self._thread.id
@@ -182,11 +182,10 @@ class StoryThread:
 
                 story = await StoryFile.from_message(m)
                 if not story:
-                    _log.info("no valid files")
+                    _log.info("no wordcountable files")
                     return
 
-                wordcount = await story.wordcount()
-                await self._set_wordcount(wordcount)
+                await self._set_wordcount(await story.wordcount())
             except discord.DiscordException as e:
                 _log.error("update failed: %s", e)
                 raise

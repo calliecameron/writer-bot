@@ -468,3 +468,86 @@ class TestStoryThread:
         with unittest.mock.patch.object(discord.Thread, "edit") as mock:
             await StoryThread(t)._set_wordcount(wordcount)
         mock.assert_has_calls([unittest.mock.call(name=expected)] if called else [])
+
+    @pytest.mark.asyncio
+    async def test_update_none(self, bot: commands.Bot) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m = backend.make_message("foo bar", u, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u.id,
+                "name": "foo bar",
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": False,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+
+        output = ""
+
+        async def edit(_: Any, name: str) -> None:
+            nonlocal output
+            output = name
+
+        with unittest.mock.patch.object(discord.Thread, "edit", edit):
+            await StoryThread(t).update()
+
+        assert output == ""
+
+    @pytest.mark.asyncio
+    async def test_update(self, bot: commands.Bot) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m = backend.make_message("foo http://example.com/test.txt bar", u, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u.id,
+                "name": "foo bar",
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": False,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+
+        output = ""
+
+        async def edit(_: Any, name: str) -> None:
+            nonlocal output
+            output = name
+
+        with unittest.mock.patch.object(discord.Thread, "edit", edit):
+            with aioresponses() as mock:
+                mock.head(
+                    "http://example.com/test.txt",
+                    status=200,
+                    headers={"content-type": "text/plain", "content-length": "10"},
+                )
+                mock.get("http://example.com/test.txt", status=200, body="foo bar baz")
+                await StoryThread(t).update()
+
+        assert output == "foo bar [100 words]"
