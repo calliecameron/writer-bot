@@ -39,7 +39,7 @@ class FileSrc(ABC):
             f"{self._size if self._size else 'unknown'} bytes)"
         )
 
-    def is_valid(self) -> bool:
+    def can_wordcount(self) -> bool:
         return self._content_type in WORDCOUNT_CONTENT_TYPES and (
             not self._size or self._size <= WORDCOUNT_MAX_SIZE
         )
@@ -124,7 +124,7 @@ class StoryFile:
     async def from_message(m: discord.Message) -> "Optional[StoryFile]":
         for a in m.attachments:
             src: FileSrc = Attachment(a)
-            if src.is_valid():
+            if src.can_wordcount():
                 return StoryFile(src)
 
         for url in urlextract.URLExtract().find_urls(
@@ -133,7 +133,7 @@ class StoryFile:
             async with aiohttp.ClientSession() as session:
                 async with session.head(url) as response:
                     src = Link(url, response.content_type, response.content_length)
-                    if src.is_valid():
+                    if src.can_wordcount():
                         return StoryFile(src)
 
         return None

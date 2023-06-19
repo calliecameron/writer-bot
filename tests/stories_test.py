@@ -45,14 +45,14 @@ class TestFileSrc:
             == "fake foo (text/plain, unknown bytes)"
         )
 
-    def test_is_valid(self) -> None:
-        assert FakeFileSrc("foo", "text/plain", None).is_valid()
-        assert FakeFileSrc("foo", "text/plain", 10).is_valid()
-        assert not FakeFileSrc("foo", "text/plain", 40 * 1024 * 1024).is_valid()
-        assert FakeFileSrc("foo", "application/pdf", None).is_valid()
-        assert FakeFileSrc("foo", "application/pdf", 10).is_valid()
-        assert not FakeFileSrc("foo", "application/pdf", 40 * 1024 * 1024).is_valid()
-        assert not FakeFileSrc("foo", "bar", None).is_valid()
+    def test_can_wordcount(self) -> None:
+        assert FakeFileSrc("foo", "text/plain", None).can_wordcount()
+        assert FakeFileSrc("foo", "text/plain", 10).can_wordcount()
+        assert not FakeFileSrc("foo", "text/plain", 40 * 1024 * 1024).can_wordcount()
+        assert FakeFileSrc("foo", "application/pdf", None).can_wordcount()
+        assert FakeFileSrc("foo", "application/pdf", 10).can_wordcount()
+        assert not FakeFileSrc("foo", "application/pdf", 40 * 1024 * 1024).can_wordcount()
+        assert not FakeFileSrc("foo", "bar", None).can_wordcount()
 
 
 class TestLink:
