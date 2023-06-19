@@ -29,10 +29,6 @@ class FileSrc(ABC):
         self._size = size
 
     @property
-    def content_type(self) -> str:
-        return self._content_type
-
-    @property
     def description(self) -> str:
         return (
             f"{self._kind} {self._url} ({self._content_type}, "
@@ -44,11 +40,29 @@ class FileSrc(ABC):
             not self._size or self._size <= WORDCOUNT_MAX_SIZE
         )
 
+    async def wordcount(self) -> int:
+        try:
+            filename = None
+            try:
+                with tempfile.NamedTemporaryFile(delete=False) as f:
+                    filename = f.name
+                _log.info("downloading %s to %s...", self.description, filename)
+                await self._download_to(filename)
+                _log.info("download finished")
+                return self._rounded_wordcount(await self._wordcount_file(filename))
+            finally:
+                if filename:
+                    os.remove(filename)
+                    _log.info(f"deleted {filename}")
+        except (discord.DiscordException, OSError) as e:
+            _log.error("wordcount failed: %s", e)
+            raise discord.DiscordException(str(e)) from e
+
     @abstractmethod
-    async def download_to(self, filename: str) -> None:
+    async def _download_to(self, filename: str) -> None:
         raise NotImplementedError
 
-    async def wordcount_file(self, filename: str) -> int:
+    async def _wordcount_file(self, filename: str) -> int:
         p = await asyncio.create_subprocess_exec(
             WORDCOUNT_SCRIPT,
             filename,
@@ -73,12 +87,20 @@ class FileSrc(ABC):
 
         return wordcount
 
+    @staticmethod
+    def _rounded_wordcount(wordcount: int) -> int:
+        if wordcount < 100:
+            return 100
+        if wordcount < 1000:
+            return round(wordcount, -2)
+        return round(wordcount, -3)
+
 
 class Link(FileSrc):
     def __init__(self, url: str, content_type: str, size: Optional[int]) -> None:
         super().__init__("link", url, content_type, size)
 
-    async def download_to(self, filename: str) -> None:
+    async def _download_to(self, filename: str) -> None:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(self._url) as response:
@@ -114,7 +136,7 @@ class Attachment(FileSrc):
         )
         self._attachment = attachment
 
-    async def download_to(self, filename: str) -> None:
+    async def _download_to(self, filename: str) -> None:
         await self._attachment.save(pathlib.PurePath(filename))
 
     @staticmethod
@@ -131,22 +153,7 @@ class StoryFile:
         self._src = src
 
     async def wordcount(self) -> int:
-        filename = None
-        try:
-            with tempfile.NamedTemporaryFile(delete=False) as f:
-                filename = f.name
-
-            _log.info("downloading %s to %s...", self._src.description, filename)
-            await self._src.download_to(filename)
-            _log.info("download finished")
-            return await self._src.wordcount_file(filename)
-        except Exception as e:
-            _log.info(f"wordcount failed: {e}")
-            raise
-        finally:
-            if filename:
-                os.remove(filename)
-                _log.info(f"deleted {filename}")
+        return await self._src.wordcount()
 
     @staticmethod
     async def from_message(m: discord.Message) -> "Optional[StoryFile]":
@@ -229,7 +236,6 @@ class Stories(commands.Cog):
                 _log.info("finished")
 
     async def set_wordcount(self, thread: discord.Thread, wordcount: int) -> None:
-        wordcount = self.rounded_wordcount(wordcount)
         title, existing_wordcount = self.existing_wordcount(thread.name)
         if wordcount == existing_wordcount:
             _log.info(f"existing rounded wordcount in title ({wordcount}) is correct")
@@ -238,13 +244,6 @@ class Stories(commands.Cog):
             title = f"{title} [{wordcount} words]"
         await thread.edit(name=title)
         _log.info(f"rounded wordcount in title set to {wordcount}")
-
-    def rounded_wordcount(self, wordcount: int) -> int:
-        if wordcount < 100:
-            return 100
-        if wordcount < 1000:
-            return round(wordcount, -2)
-        return round(wordcount, -3)
 
     def existing_wordcount(self, name: str) -> tuple[str, int]:
         match = re.fullmatch(r"(.*?)(\[([0-9]+) words\])?\s*", name)

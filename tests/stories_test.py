@@ -31,14 +31,12 @@ class FakeFileSrc(FileSrc):
     def __init__(self, *args: Any) -> None:
         super().__init__("fake", *args)
 
-    async def download_to(self, _: str) -> None:
-        return
+    async def _download_to(self, filename: str) -> None:
+        with open(filename, mode="w", encoding="utf-8") as f:
+            f.write("foo bar baz\n")
 
 
 class TestFileSrc:
-    def test_content_type(self) -> None:
-        assert FakeFileSrc("foo", "bar", 10).content_type == "bar"
-
     def test_description(self) -> None:
         assert FakeFileSrc("foo", "text/plain", 10).description == "fake foo (text/plain, 10 bytes)"
         assert (
@@ -62,14 +60,14 @@ class TestFileSrc:
             "writer_bot.stories.WORDCOUNT_SCRIPT",
             str(pathlib.Path(__file__).resolve().parent.parent / "testdata" / "wordcount_good.sh"),
         ):
-            assert await f.wordcount_file("foo") == 10
+            assert await f._wordcount_file("foo") == 10
 
         with unittest.mock.patch(
             "writer_bot.stories.WORDCOUNT_SCRIPT",
             str(pathlib.Path(__file__).resolve().parent.parent / "testdata" / "wordcount_error.sh"),
         ):
             with pytest.raises(discord.DiscordException):
-                await f.wordcount_file("foo")
+                await f._wordcount_file("foo")
 
         with unittest.mock.patch(
             "writer_bot.stories.WORDCOUNT_SCRIPT",
@@ -78,7 +76,7 @@ class TestFileSrc:
             ),
         ):
             with pytest.raises(discord.DiscordException):
-                await f.wordcount_file("foo")
+                await f._wordcount_file("foo")
 
         with unittest.mock.patch(
             "writer_bot.stories.WORDCOUNT_SCRIPT",
@@ -89,7 +87,19 @@ class TestFileSrc:
             ),
         ):
             with pytest.raises(discord.DiscordException):
-                await f.wordcount_file("foo")
+                await f._wordcount_file("foo")
+
+    def test_rounded_wordcount(self) -> None:
+        assert FileSrc._rounded_wordcount(10) == 100
+        assert FileSrc._rounded_wordcount(120) == 100
+        assert FileSrc._rounded_wordcount(160) == 200
+        assert FileSrc._rounded_wordcount(1020) == 1000
+        assert FileSrc._rounded_wordcount(12345) == 12000
+
+    @pytest.mark.asyncio
+    async def test_wordcount(self) -> None:
+        f = FakeFileSrc("foo", "text/plain", 10)
+        assert await f.wordcount() == 100
 
 
 class TestLink:
@@ -98,7 +108,7 @@ class TestLink:
         with aioresponses() as m:
             m.get("http://example.com/test.txt", status=200, body="foo bar baz")
             l = Link("http://example.com/test.txt", "text/plain", None)
-            await l.download_to("foo.txt")
+            await l._download_to("foo.txt")
             assert pathlib.Path("foo.txt").read_text(encoding="utf-8").strip() == "foo bar baz"
 
     @pytest.mark.asyncio
@@ -139,7 +149,7 @@ class TestAttachment:
                 ),
             )
         )
-        await a.download_to("foo.txt")
+        await a._download_to("foo.txt")
         assert pathlib.Path("foo.txt").read_text(encoding="utf-8").strip() == "foo bar baz 2"
 
     def test_from_attachment(self) -> None:
