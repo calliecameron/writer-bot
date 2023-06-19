@@ -1,4 +1,4 @@
-from typing import Optional, Set, Tuple
+from typing import Optional
 from abc import ABC, abstractmethod
 import asyncio
 import os
@@ -145,7 +145,7 @@ class Stories(commands.Cog):
         self._bot = bot
         self._story_forum_id = story_forum_id
         self._story_forum: discord.ForumChannel = None  # type: ignore
-        self._actively_processing: Set[int] = set()
+        self._actively_processing: set[int] = set()
 
     async def cog_load(self) -> None:
         story_forum = await self._bot.fetch_channel(self._story_forum_id)
@@ -220,7 +220,7 @@ class Stories(commands.Cog):
             return round(wordcount, -2)
         return round(wordcount, -3)
 
-    def existing_wordcount(self, name: str) -> Tuple[str, int]:
+    def existing_wordcount(self, name: str) -> tuple[str, int]:
         match = re.fullmatch(r"(.*?)(\[([0-9]+) words\])?\s*", name)
         if not match:
             raise ValueError(f"failed to extract title or word count from '{name}'")

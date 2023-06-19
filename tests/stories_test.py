@@ -4,7 +4,9 @@ from aioresponses import aioresponses
 import discord
 from discord.ext import commands
 import discord.ext.test as dpytest
-from pyfakefs import fake_filesystem
+from discord.ext.test import backend
+from discord.ext.test import factories
+from pyfakefs import fake_filesystem  # pylint: disable=no-name-in-module
 import pytest
 import pytest_asyncio
 from writer_bot.stories import Attachment, FileSrc, Link
@@ -69,13 +71,13 @@ class TestAttachment:
         fs.create_file("test.txt", contents="foo bar baz 2")
         a = Attachment(
             discord.Attachment(
-                state=dpytest.back.get_state(),
-                data=dpytest.back.facts.make_attachment_dict(
+                state=backend.get_state(),
+                data=factories.make_attachment_dict(
                     filename="test.txt",
                     size=12,
                     url="http://example.com/test.txt",
                     proxy_url="http://example.com/test.txt",
-                    content_type="text/plain",
+                    content_type="text/plain",  # type: ignore
                 ),
             )
         )

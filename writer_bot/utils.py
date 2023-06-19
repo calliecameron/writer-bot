@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, MutableMapping, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, MutableMapping, Optional
 import contextvars
 import logging
 from types import TracebackType
@@ -29,7 +29,7 @@ class LogContext:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:
@@ -44,7 +44,7 @@ class Logger(_LoggerAdapter):
 
     def process(
         self, msg: Any, kwargs: MutableMapping[str, Any]
-    ) -> Tuple[Any, MutableMapping[str, Any]]:
+    ) -> tuple[Any, MutableMapping[str, Any]]:
         value = _log_context.get()
         if value:
             msg = value + ": " + msg
