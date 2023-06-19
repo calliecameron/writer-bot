@@ -64,6 +64,27 @@ class TestLink:
             await l.download_to("foo.txt")
             assert pathlib.Path("foo.txt").read_text(encoding="utf-8").strip() == "foo bar baz"
 
+    @pytest.mark.asyncio
+    async def test_from_url(self) -> None:
+        with aioresponses() as m:
+            m.head(
+                "http://example.com/test.txt",
+                status=200,
+                headers={"content-type": "text/plain", "content-length": "10"},
+            )
+            l = await Link.from_url("http://example.com/test.txt")
+            assert l is not None
+            assert l.description == "link http://example.com/test.txt (text/plain, 10 bytes)"
+
+        with aioresponses() as m:
+            m.head(
+                "http://example.com/test.txt",
+                status=200,
+                headers={"content-type": "image/jpeg"},
+            )
+            l = await Link.from_url("http://example.com/test.txt")
+            assert l is None
+
 
 class TestAttachment:
     @pytest.mark.asyncio
@@ -83,3 +104,33 @@ class TestAttachment:
         )
         await a.download_to("foo.txt")
         assert pathlib.Path("foo.txt").read_text(encoding="utf-8").strip() == "foo bar baz 2"
+
+    def test_from_attachment(self) -> None:
+        a = Attachment.from_attachment(
+            discord.Attachment(
+                state=backend.get_state(),
+                data=factories.make_attachment_dict(
+                    filename="test.txt",
+                    size=12,
+                    url="http://example.com/test.txt",
+                    proxy_url="http://example.com/test.txt",
+                    content_type="text/plain",  # type: ignore
+                ),
+            )
+        )
+        assert a is not None
+        assert a.description == "attachment http://example.com/test.txt (text/plain, 12 bytes)"
+
+        a = Attachment.from_attachment(
+            discord.Attachment(
+                state=backend.get_state(),
+                data=factories.make_attachment_dict(
+                    filename="test.txt",
+                    size=12,
+                    url="http://example.com/test.txt",
+                    proxy_url="http://example.com/test.txt",
+                    content_type="image/jpeg",  # type: ignore
+                ),
+            )
+        )
+        assert a is None

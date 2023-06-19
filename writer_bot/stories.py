@@ -60,6 +60,15 @@ class Link(FileSrc):
         with open(filename, mode="wb") as f:
             f.write(data)
 
+    @staticmethod
+    async def from_url(url: str) -> "Optional[Link]":
+        async with aiohttp.ClientSession() as session:
+            async with session.head(url) as response:
+                l = Link(url, response.content_type, response.content_length)
+                if l.can_wordcount():
+                    return l
+        return None
+
 
 class Attachment(FileSrc):
     def __init__(self, attachment: discord.Attachment) -> None:
@@ -76,6 +85,13 @@ class Attachment(FileSrc):
 
     async def download_to(self, filename: str) -> None:
         await self._attachment.save(pathlib.PurePath(filename))
+
+    @staticmethod
+    def from_attachment(attachment: discord.Attachment) -> "Optional[Attachment]":
+        a = Attachment(attachment)
+        if a.can_wordcount():
+            return a
+        return None
 
 
 class StoryFile:
@@ -123,18 +139,16 @@ class StoryFile:
     @staticmethod
     async def from_message(m: discord.Message) -> "Optional[StoryFile]":
         for a in m.attachments:
-            src: FileSrc = Attachment(a)
-            if src.can_wordcount():
-                return StoryFile(src)
+            at = Attachment.from_attachment(a)
+            if at:
+                return StoryFile(at)
 
         for url in urlextract.URLExtract().find_urls(
             m.content, only_unique=True, with_schema_only=True
         ):
-            async with aiohttp.ClientSession() as session:
-                async with session.head(url) as response:
-                    src = Link(url, response.content_type, response.content_length)
-                    if src.can_wordcount():
-                        return StoryFile(src)
+            l = await Link.from_url(url)
+            if l:
+                return StoryFile(l)
 
         return None
 
