@@ -167,6 +167,56 @@ class Attachment(StoryFile):
         return None
 
 
+class StoryThread:
+    def __init__(self, thread: discord.Thread) -> None:
+        super().__init__()
+        self._thread = thread
+
+    async def update(self) -> None:
+        with utils.LogContext(f"thread {self._thread.id} ({self._thread.name})"):
+            _log.info("processing...")
+            try:
+                m = self._thread.starter_message or await self._thread.fetch_message(
+                    self._thread.id
+                )
+
+                story = await StoryFile.from_message(m)
+                if not story:
+                    _log.info("no valid files")
+                    return
+
+                wordcount = await story.wordcount()
+                await self._set_wordcount(wordcount)
+            finally:
+                _log.info("finished")
+
+    async def _set_wordcount(self, wordcount: int) -> None:
+        title, existing_wordcount = self._parse_name()
+        if wordcount == existing_wordcount:
+            _log.info(f"existing rounded wordcount in title ({wordcount}) is correct")
+            return
+        if wordcount > 0:
+            title = f"{title} [{wordcount} words]"
+        await self._thread.edit(name=title)
+        _log.info(f"wordcount in title set to {wordcount}")
+
+    def _parse_name(self) -> tuple[str, int]:
+        name = self._thread.name
+        match = re.fullmatch(r"(.*?)(\[([0-9]+) words\])?\s*", name)
+        if not match:
+            raise discord.DiscordException(f"failed to extract title and word count from '{name}'")
+        title = ""
+        if match.group(1):
+            title = match.group(1).strip()
+        wordcount = 0
+        if match.group(3):
+            try:
+                wordcount = int(match.group(3))
+            except ValueError as e:
+                raise discord.DiscordException(str(e)) from e
+        return title, wordcount
+
+
 class Stories(commands.Cog):
     def __init__(self, bot: commands.Bot, story_forum_id: int) -> None:
         super().__init__()
@@ -213,39 +263,9 @@ class Stories(commands.Cog):
     async def process_thread(self, thread: discord.Thread) -> None:
         if thread.id in self._actively_processing:
             return
-        with utils.LogContext(f"thread {thread.id} ({thread.name})"):
-            self._actively_processing.add(thread.id)
-            _log.info("processing...")
-            try:
-                m = thread.starter_message or await thread.fetch_message(thread.id)
-
-                story = await StoryFile.from_message(m)
-                if not story:
-                    _log.info("no valid files")
-                    return
-
-                wordcount = await story.wordcount()
-                await self.set_wordcount(thread, wordcount)
-            finally:
-                self._actively_processing.remove(thread.id)
-                _log.info("finished")
-
-    async def set_wordcount(self, thread: discord.Thread, wordcount: int) -> None:
-        title, existing_wordcount = self.existing_wordcount(thread.name)
-        if wordcount == existing_wordcount:
-            _log.info(f"existing rounded wordcount in title ({wordcount}) is correct")
-            return
-        if wordcount > 0:
-            title = f"{title} [{wordcount} words]"
-        await thread.edit(name=title)
-        _log.info(f"rounded wordcount in title set to {wordcount}")
-
-    def existing_wordcount(self, name: str) -> tuple[str, int]:
-        match = re.fullmatch(r"(.*?)(\[([0-9]+) words\])?\s*", name)
-        if not match:
-            raise ValueError(f"failed to extract title or word count from '{name}'")
-        title = match.group(1).strip()
-        wordcount = 0
-        if match.group(3):
-            wordcount = int(match.group(3))
-        return title, wordcount
+        self._actively_processing.add(thread.id)
+        try:
+            t = StoryThread(thread)
+            await t.update()
+        finally:
+            self._actively_processing.remove(thread.id)

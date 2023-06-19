@@ -11,7 +11,7 @@ from discord.ext import commands
 from discord.ext.test import backend, factories
 from pyfakefs import fake_filesystem  # pylint: disable=no-name-in-module
 
-from writer_bot.stories import Attachment, Link, StoryFile
+from writer_bot.stories import Attachment, Link, StoryFile, StoryThread
 
 # pylint: disable=protected-access,unused-argument,redefined-outer-name
 
@@ -386,3 +386,43 @@ class TestAttachment:
             )
         )
         assert a is None
+
+
+class TestStoryThread:
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "name,expected_name,expected_wordcount",
+        [
+            ("foo bar", "foo bar", 0),
+            ("  foo bar [baz]  [100 words]  ", "foo bar [baz]", 100),
+            ("[100 words]", "", 100),
+        ],
+    )
+    async def test_parse_name(
+        self, bot: commands.Bot, name: str, expected_name: str, expected_wordcount: int
+    ) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m = backend.make_message("foo bar", u, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u.id,
+                "name": name,
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": False,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+        assert StoryThread(t)._parse_name() == (expected_name, expected_wordcount)
