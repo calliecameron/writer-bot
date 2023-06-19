@@ -79,19 +79,25 @@ class Link(FileSrc):
         super().__init__("link", url, content_type, size)
 
     async def download_to(self, filename: str) -> None:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(self._url) as response:
-                data = await response.read()
-        with open(filename, mode="wb") as f:
-            f.write(data)
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(self._url) as response:
+                    data = await response.read()
+            with open(filename, mode="wb") as f:
+                f.write(data)
+        except (aiohttp.ClientError, OSError) as e:
+            raise discord.DiscordException(str(e)) from e
 
     @staticmethod
     async def from_url(url: str) -> "Optional[Link]":
-        async with aiohttp.ClientSession() as session:
-            async with session.head(url) as response:
-                l = Link(url, response.content_type, response.content_length)
-                if l.can_wordcount():
-                    return l
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.head(url) as response:
+                    l = Link(url, response.content_type, response.content_length)
+        except aiohttp.ClientError as e:
+            raise discord.DiscordException(str(e)) from e
+        if l.can_wordcount():
+            return l
         return None
 
 
