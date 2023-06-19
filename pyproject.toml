@@ -19,3 +19,4 @@ output-format = "parseable"
 
 [tool.pytest.ini_options]
 filterwarnings = "ignore::DeprecationWarning:pkg_resources.*:"
+log_level = "INFO"

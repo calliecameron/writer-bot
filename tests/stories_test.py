@@ -101,6 +101,209 @@ class TestFileSrc:
         f = FakeFileSrc("foo", "text/plain", 10)
         assert await f.wordcount() == 100
 
+    @pytest.mark.asyncio
+    async def test_from_message_none(self, bot: commands.Bot) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m = backend.make_message("foo bar", u, c)
+
+        assert await FileSrc.from_message(m) is None
+
+    @pytest.mark.asyncio
+    async def test_from_message_none_valid(self, bot: commands.Bot) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m = backend.make_message(
+            "foo http://example.com/test1.jpg bar http://example.com/test2.jpg baz "
+            "http://example.com/test3.jpg quux",
+            u,
+            c,
+            attachments=[
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(
+                        filename="test4.jpg",
+                        size=12,
+                        url="http://example.com/test4.jpg",
+                        proxy_url="http://example.com/test4.jpg",
+                        content_type="image/jpeg",  # type: ignore
+                    ),
+                ),
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(
+                        filename="test5.txt",
+                        size=12,
+                        url="http://example.com/test5.jpg",
+                        proxy_url="http://example.com/test5.jpg",
+                        content_type="image/jpeg",  # type: ignore
+                    ),
+                ),
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(
+                        filename="test6.jpg",
+                        size=12,
+                        url="http://example.com/test6.jpg",
+                        proxy_url="http://example.com/test6.jpg",
+                        content_type="image/jpeg",  # type: ignore
+                    ),
+                ),
+            ],
+        )
+
+        with aioresponses() as mock:
+            mock.head(
+                "http://example.com/test1.jpg",
+                status=200,
+                headers={"content-type": "image/jpeg", "content-length": "10"},
+            )
+            mock.head(
+                "http://example.com/test2.jpg",
+                status=200,
+                headers={"content-type": "image/jpeg", "content-length": "10"},
+            )
+            mock.head(
+                "http://example.com/test3.jpg",
+                status=200,
+                headers={"content-type": "image/jpeg", "content-length": "10"},
+            )
+
+            assert await FileSrc.from_message(m) is None
+
+    @pytest.mark.asyncio
+    async def test_from_message_attachment(self, bot: commands.Bot) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+
+        m = backend.make_message(
+            "foo http://example.com/test1.jpg bar http://example.com/test2.txt baz "
+            "http://example.com/test3.txt quux",
+            u,
+            c,
+            attachments=[
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(
+                        filename="test4.jpg",
+                        size=12,
+                        url="http://example.com/test4.jpg",
+                        proxy_url="http://example.com/test4.jpg",
+                        content_type="image/jpeg",  # type: ignore
+                    ),
+                ),
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(
+                        filename="test5.txt",
+                        size=12,
+                        url="http://example.com/test5.txt",
+                        proxy_url="http://example.com/test5.txt",
+                        content_type="text/plain",  # type: ignore
+                    ),
+                ),
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(
+                        filename="test6.txt",
+                        size=12,
+                        url="http://example.com/test6.txt",
+                        proxy_url="http://example.com/test6.txt",
+                        content_type="text/plain",  # type: ignore
+                    ),
+                ),
+            ],
+        )
+
+        with aioresponses() as mock:
+            mock.head(
+                "http://example.com/test1.jpg",
+                status=200,
+                headers={"content-type": "image/jpeg", "content-length": "10"},
+            )
+            mock.head(
+                "http://example.com/test2.txt",
+                status=200,
+                headers={"content-type": "text/plain", "content-length": "10"},
+            )
+            mock.head(
+                "http://example.com/test3.txt",
+                status=200,
+                headers={"content-type": "text/plain", "content-length": "10"},
+            )
+
+            s = await FileSrc.from_message(m)
+            assert s is not None
+            assert s.description == "attachment http://example.com/test5.txt (text/plain, 12 bytes)"
+
+    @pytest.mark.asyncio
+    async def test_from_message_link(self, bot: commands.Bot) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m = backend.make_message(
+            "foo http://example.com/test1.jpg bar http://example.com/test2.txt baz "
+            "http://example.com/test3.txt quux",
+            u,
+            c,
+            attachments=[
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(
+                        filename="test4.jpg",
+                        size=12,
+                        url="http://example.com/test4.jpg",
+                        proxy_url="http://example.com/test4.jpg",
+                        content_type="image/jpeg",  # type: ignore
+                    ),
+                ),
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(
+                        filename="test5.txt",
+                        size=12,
+                        url="http://example.com/test5.jpg",
+                        proxy_url="http://example.com/test5.jpg",
+                        content_type="image/jpeg",  # type: ignore
+                    ),
+                ),
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(
+                        filename="test6.jpg",
+                        size=12,
+                        url="http://example.com/test6.jpg",
+                        proxy_url="http://example.com/test6.jpg",
+                        content_type="image/jpeg",  # type: ignore
+                    ),
+                ),
+            ],
+        )
+
+        with aioresponses() as mock:
+            mock.head(
+                "http://example.com/test1.jpg",
+                status=200,
+                headers={"content-type": "image/jpeg", "content-length": "10"},
+            )
+            mock.head(
+                "http://example.com/test2.txt",
+                status=200,
+                headers={"content-type": "text/plain", "content-length": "10"},
+            )
+            mock.head(
+                "http://example.com/test3.txt",
+                status=200,
+                headers={"content-type": "text/plain", "content-length": "10"},
+            )
+
+            s = await FileSrc.from_message(m)
+            assert s is not None
+            assert s.description == "link http://example.com/test2.txt (text/plain, 10 bytes)"
+
 
 class TestLink:
     @pytest.mark.asyncio

@@ -95,6 +95,22 @@ class FileSrc(ABC):
             return round(wordcount, -2)
         return round(wordcount, -3)
 
+    @staticmethod
+    async def from_message(m: discord.Message) -> "Optional[FileSrc]":
+        for a in m.attachments:
+            at = Attachment.from_attachment(a)
+            if at:
+                return at
+
+        for url in urlextract.URLExtract().find_urls(
+            m.content, only_unique=True, with_schema_only=True
+        ):
+            l = await Link.from_url(url)
+            if l:
+                return l
+
+        return None
+
 
 class Link(FileSrc):
     def __init__(self, url: str, content_type: str, size: Optional[int]) -> None:
@@ -119,7 +135,9 @@ class Link(FileSrc):
         except aiohttp.ClientError as e:
             raise discord.DiscordException(str(e)) from e
         if l.can_wordcount():
+            _log.info("can wordcount %s", l.description)
             return l
+        _log.info("can't wordcount %s", l.description)
         return None
 
 
@@ -143,7 +161,9 @@ class Attachment(FileSrc):
     def from_attachment(attachment: discord.Attachment) -> "Optional[Attachment]":
         a = Attachment(attachment)
         if a.can_wordcount():
+            _log.info("can wordcount %s", a.description)
             return a
+        _log.info("can't wordcount %s", a.description)
         return None
 
 
@@ -157,18 +177,9 @@ class StoryFile:
 
     @staticmethod
     async def from_message(m: discord.Message) -> "Optional[StoryFile]":
-        for a in m.attachments:
-            at = Attachment.from_attachment(a)
-            if at:
-                return StoryFile(at)
-
-        for url in urlextract.URLExtract().find_urls(
-            m.content, only_unique=True, with_schema_only=True
-        ):
-            l = await Link.from_url(url)
-            if l:
-                return StoryFile(l)
-
+        s = await FileSrc.from_message(m)
+        if s:
+            return StoryFile(s)
         return None
 
 
