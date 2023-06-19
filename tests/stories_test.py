@@ -1,16 +1,17 @@
-from typing import Any
 import pathlib
-from aioresponses import aioresponses
+import unittest.mock
+from typing import Any
+
 import discord
-from discord.ext import commands
 import discord.ext.test as dpytest
-from discord.ext.test import backend
-from discord.ext.test import factories
-from pyfakefs import fake_filesystem  # pylint: disable=no-name-in-module
 import pytest
 import pytest_asyncio
-from writer_bot.stories import Attachment, FileSrc, Link
+from aioresponses import aioresponses
+from discord.ext import commands
+from discord.ext.test import backend, factories
+from pyfakefs import fake_filesystem  # pylint: disable=no-name-in-module
 
+from writer_bot.stories import Attachment, FileSrc, Link
 
 # pylint: disable=protected-access,unused-argument,redefined-outer-name
 
@@ -53,6 +54,42 @@ class TestFileSrc:
         assert FakeFileSrc("foo", "application/pdf", 10).can_wordcount()
         assert not FakeFileSrc("foo", "application/pdf", 40 * 1024 * 1024).can_wordcount()
         assert not FakeFileSrc("foo", "bar", None).can_wordcount()
+
+    @pytest.mark.asyncio
+    async def test_wordcount_file(self) -> None:
+        f = FakeFileSrc("foo", "bar", 10)
+        with unittest.mock.patch(
+            "writer_bot.stories.WORDCOUNT_SCRIPT",
+            str(pathlib.Path(__file__).resolve().parent.parent / "testdata" / "wordcount_good.sh"),
+        ):
+            assert await f.wordcount_file("foo") == 10
+
+        with unittest.mock.patch(
+            "writer_bot.stories.WORDCOUNT_SCRIPT",
+            str(pathlib.Path(__file__).resolve().parent.parent / "testdata" / "wordcount_error.sh"),
+        ):
+            with pytest.raises(discord.DiscordException):
+                await f.wordcount_file("foo")
+
+        with unittest.mock.patch(
+            "writer_bot.stories.WORDCOUNT_SCRIPT",
+            str(
+                pathlib.Path(__file__).resolve().parent.parent / "testdata" / "wordcount_string.sh"
+            ),
+        ):
+            with pytest.raises(discord.DiscordException):
+                await f.wordcount_file("foo")
+
+        with unittest.mock.patch(
+            "writer_bot.stories.WORDCOUNT_SCRIPT",
+            str(
+                pathlib.Path(__file__).resolve().parent.parent
+                / "testdata"
+                / "wordcount_negative.sh"
+            ),
+        ):
+            with pytest.raises(discord.DiscordException):
+                await f.wordcount_file("foo")
 
 
 class TestLink:

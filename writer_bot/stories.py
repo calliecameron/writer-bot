@@ -48,6 +48,31 @@ class FileSrc(ABC):
     async def download_to(self, filename: str) -> None:
         raise NotImplementedError
 
+    async def wordcount_file(self, filename: str) -> int:
+        p = await asyncio.create_subprocess_exec(
+            WORDCOUNT_SCRIPT,
+            filename,
+            self._content_type,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        stdout, stderr = await p.communicate()
+
+        if p.returncode != 0:
+            raise discord.DiscordException(
+                f"retcode {p.returncode}, stderr: {stderr.decode('utf-8').strip()}"
+            )
+
+        try:
+            wordcount = int(stdout.decode("utf-8").strip())
+        except ValueError as e:
+            raise discord.DiscordException(str(e)) from e
+
+        if wordcount < 0:
+            raise discord.DiscordException(f"wordcount must be positive, got {wordcount}")
+
+        return wordcount
+
 
 class Link(FileSrc):
     def __init__(self, url: str, content_type: str, size: Optional[int]) -> None:
@@ -108,7 +133,7 @@ class StoryFile:
             _log.info("downloading %s to %s...", self._src.description, filename)
             await self._src.download_to(filename)
             _log.info("download finished")
-            return await self._raw_wordcount(filename)
+            return await self._src.wordcount_file(filename)
         except Exception as e:
             _log.info(f"wordcount failed: {e}")
             raise
@@ -116,25 +141,6 @@ class StoryFile:
             if filename:
                 os.remove(filename)
                 _log.info(f"deleted {filename}")
-
-    async def _raw_wordcount(self, filename: str) -> int:
-        p = await asyncio.create_subprocess_exec(
-            WORDCOUNT_SCRIPT,
-            filename,
-            self._src.content_type,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        stdout, stderr = await p.communicate()
-
-        if p.returncode != 0:
-            raise ValueError(f"retcode {p.returncode}, stderr: {stderr.decode('utf-8').strip()}")
-
-        wordcount = int(stdout.decode("utf-8").strip())
-        if wordcount < 0:
-            raise ValueError(f"wordcount must be positive, got {wordcount}")
-        _log.info(f"wordcount {wordcount}")
-        return wordcount
 
     @staticmethod
     async def from_message(m: discord.Message) -> "Optional[StoryFile]":
