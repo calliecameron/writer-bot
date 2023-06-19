@@ -11,7 +11,7 @@ from discord.ext import commands
 from discord.ext.test import backend, factories
 from pyfakefs import fake_filesystem  # pylint: disable=no-name-in-module
 
-from writer_bot.stories import Attachment, FileSrc, Link
+from writer_bot.stories import Attachment, Link, StoryFile
 
 # pylint: disable=protected-access,unused-argument,redefined-outer-name
 
@@ -27,7 +27,7 @@ async def bot() -> commands.Bot:
     return b
 
 
-class FakeFileSrc(FileSrc):
+class FakeStoryFile(StoryFile):
     def __init__(self, *args: Any) -> None:
         super().__init__("fake", *args)
 
@@ -36,26 +36,28 @@ class FakeFileSrc(FileSrc):
             f.write("foo bar baz\n")
 
 
-class TestFileSrc:
+class TestStoryFile:
     def test_description(self) -> None:
-        assert FakeFileSrc("foo", "text/plain", 10).description == "fake foo (text/plain, 10 bytes)"
         assert (
-            FakeFileSrc("foo", "text/plain", None).description
+            FakeStoryFile("foo", "text/plain", 10).description == "fake foo (text/plain, 10 bytes)"
+        )
+        assert (
+            FakeStoryFile("foo", "text/plain", None).description
             == "fake foo (text/plain, unknown bytes)"
         )
 
     def test_can_wordcount(self) -> None:
-        assert FakeFileSrc("foo", "text/plain", None).can_wordcount()
-        assert FakeFileSrc("foo", "text/plain", 10).can_wordcount()
-        assert not FakeFileSrc("foo", "text/plain", 40 * 1024 * 1024).can_wordcount()
-        assert FakeFileSrc("foo", "application/pdf", None).can_wordcount()
-        assert FakeFileSrc("foo", "application/pdf", 10).can_wordcount()
-        assert not FakeFileSrc("foo", "application/pdf", 40 * 1024 * 1024).can_wordcount()
-        assert not FakeFileSrc("foo", "bar", None).can_wordcount()
+        assert FakeStoryFile("foo", "text/plain", None).can_wordcount()
+        assert FakeStoryFile("foo", "text/plain", 10).can_wordcount()
+        assert not FakeStoryFile("foo", "text/plain", 40 * 1024 * 1024).can_wordcount()
+        assert FakeStoryFile("foo", "application/pdf", None).can_wordcount()
+        assert FakeStoryFile("foo", "application/pdf", 10).can_wordcount()
+        assert not FakeStoryFile("foo", "application/pdf", 40 * 1024 * 1024).can_wordcount()
+        assert not FakeStoryFile("foo", "bar", None).can_wordcount()
 
     @pytest.mark.asyncio
     async def test_wordcount_file(self) -> None:
-        f = FakeFileSrc("foo", "bar", 10)
+        f = FakeStoryFile("foo", "bar", 10)
         with unittest.mock.patch(
             "writer_bot.stories.WORDCOUNT_SCRIPT",
             str(pathlib.Path(__file__).resolve().parent.parent / "testdata" / "wordcount_good.sh"),
@@ -90,15 +92,15 @@ class TestFileSrc:
                 await f._wordcount_file("foo")
 
     def test_rounded_wordcount(self) -> None:
-        assert FileSrc._rounded_wordcount(10) == 100
-        assert FileSrc._rounded_wordcount(120) == 100
-        assert FileSrc._rounded_wordcount(160) == 200
-        assert FileSrc._rounded_wordcount(1020) == 1000
-        assert FileSrc._rounded_wordcount(12345) == 12000
+        assert StoryFile._rounded_wordcount(10) == 100
+        assert StoryFile._rounded_wordcount(120) == 100
+        assert StoryFile._rounded_wordcount(160) == 200
+        assert StoryFile._rounded_wordcount(1020) == 1000
+        assert StoryFile._rounded_wordcount(12345) == 12000
 
     @pytest.mark.asyncio
     async def test_wordcount(self) -> None:
-        f = FakeFileSrc("foo", "text/plain", 10)
+        f = FakeStoryFile("foo", "text/plain", 10)
         assert await f.wordcount() == 100
 
     @pytest.mark.asyncio
@@ -108,7 +110,7 @@ class TestFileSrc:
         c = backend.make_text_channel("channel", g)
         m = backend.make_message("foo bar", u, c)
 
-        assert await FileSrc.from_message(m) is None
+        assert await StoryFile.from_message(m) is None
 
     @pytest.mark.asyncio
     async def test_from_message_none_valid(self, bot: commands.Bot) -> None:
@@ -171,7 +173,7 @@ class TestFileSrc:
                 headers={"content-type": "image/jpeg", "content-length": "10"},
             )
 
-            assert await FileSrc.from_message(m) is None
+            assert await StoryFile.from_message(m) is None
 
     @pytest.mark.asyncio
     async def test_from_message_attachment(self, bot: commands.Bot) -> None:
@@ -235,7 +237,7 @@ class TestFileSrc:
                 headers={"content-type": "text/plain", "content-length": "10"},
             )
 
-            s = await FileSrc.from_message(m)
+            s = await StoryFile.from_message(m)
             assert s is not None
             assert s.description == "attachment http://example.com/test5.txt (text/plain, 12 bytes)"
 
@@ -300,7 +302,7 @@ class TestFileSrc:
                 headers={"content-type": "text/plain", "content-length": "10"},
             )
 
-            s = await FileSrc.from_message(m)
+            s = await StoryFile.from_message(m)
             assert s is not None
             assert s.description == "link http://example.com/test2.txt (text/plain, 10 bytes)"
 

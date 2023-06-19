@@ -20,7 +20,7 @@ WORDCOUNT_SCRIPT = str(pathlib.Path(__file__).resolve().parent.parent / "bin" / 
 _log = utils.Logger(__name__)
 
 
-class FileSrc(ABC):
+class StoryFile(ABC):
     def __init__(self, kind: str, url: str, content_type: str, size: Optional[int]) -> None:
         super().__init__()
         self._kind = kind
@@ -96,7 +96,7 @@ class FileSrc(ABC):
         return round(wordcount, -3)
 
     @staticmethod
-    async def from_message(m: discord.Message) -> "Optional[FileSrc]":
+    async def from_message(m: discord.Message) -> "Optional[StoryFile]":
         for a in m.attachments:
             at = Attachment.from_attachment(a)
             if at:
@@ -112,7 +112,7 @@ class FileSrc(ABC):
         return None
 
 
-class Link(FileSrc):
+class Link(StoryFile):
     def __init__(self, url: str, content_type: str, size: Optional[int]) -> None:
         super().__init__("link", url, content_type, size)
 
@@ -141,7 +141,7 @@ class Link(FileSrc):
         return None
 
 
-class Attachment(FileSrc):
+class Attachment(StoryFile):
     def __init__(self, attachment: discord.Attachment) -> None:
         content_type = ""
         if attachment.content_type:
@@ -164,22 +164,6 @@ class Attachment(FileSrc):
             _log.info("can wordcount %s", a.description)
             return a
         _log.info("can't wordcount %s", a.description)
-        return None
-
-
-class StoryFile:
-    def __init__(self, src: FileSrc) -> None:
-        super().__init__()
-        self._src = src
-
-    async def wordcount(self) -> int:
-        return await self._src.wordcount()
-
-    @staticmethod
-    async def from_message(m: discord.Message) -> "Optional[StoryFile]":
-        s = await FileSrc.from_message(m)
-        if s:
-            return StoryFile(s)
         return None
 
 
