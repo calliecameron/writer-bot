@@ -426,3 +426,45 @@ class TestStoryThread:
             },
         )
         assert StoryThread(t)._parse_name() == (expected_name, expected_wordcount)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "name,wordcount,expected,called",
+        [
+            ("foo bar", 0, "foo bar", False),
+            ("foo bar", 10, "foo bar [10 words]", True),
+            ("foo bar [10 words]", 10, "foo bar [10 words]", False),
+            ("foo bar [10 words]", 100, "foo bar [100 words]", True),
+            ("foo bar [10 words]", 0, "foo bar", True),
+        ],
+    )
+    async def test_set_wordcount(
+        self, bot: commands.Bot, name: str, wordcount: int, expected: str, called: bool
+    ) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m = backend.make_message("foo bar", u, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u.id,
+                "name": name,
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": False,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+        with unittest.mock.patch.object(discord.Thread, "edit") as mock:
+            await StoryThread(t)._set_wordcount(wordcount)
+        mock.assert_has_calls([unittest.mock.call(name=expected)] if called else [])

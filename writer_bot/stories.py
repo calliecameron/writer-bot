@@ -187,13 +187,16 @@ class StoryThread:
 
                 wordcount = await story.wordcount()
                 await self._set_wordcount(wordcount)
+            except discord.DiscordException as e:
+                _log.error("update failed: %s", e)
+                raise
             finally:
                 _log.info("finished")
 
     async def _set_wordcount(self, wordcount: int) -> None:
         title, existing_wordcount = self._parse_name()
         if wordcount == existing_wordcount:
-            _log.info(f"existing rounded wordcount in title ({wordcount}) is correct")
+            _log.info(f"existing wordcount in title ({wordcount}) is correct")
             return
         if wordcount > 0:
             title = f"{title} [{wordcount} words]"
