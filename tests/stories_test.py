@@ -125,32 +125,32 @@ class TestStoryFile:
             attachments=[
                 discord.Attachment(
                     state=backend.get_state(),
-                    data=factories.make_attachment_dict(
+                    data=factories.make_attachment_dict(  # type: ignore
                         filename="test4.jpg",
                         size=12,
                         url="http://example.com/test4.jpg",
                         proxy_url="http://example.com/test4.jpg",
-                        content_type="image/jpeg",  # type: ignore
+                        content_type="image/jpeg",
                     ),
                 ),
                 discord.Attachment(
                     state=backend.get_state(),
-                    data=factories.make_attachment_dict(
+                    data=factories.make_attachment_dict(  # type: ignore
                         filename="test5.txt",
                         size=12,
                         url="http://example.com/test5.jpg",
                         proxy_url="http://example.com/test5.jpg",
-                        content_type="image/jpeg",  # type: ignore
+                        content_type="image/jpeg",
                     ),
                 ),
                 discord.Attachment(
                     state=backend.get_state(),
-                    data=factories.make_attachment_dict(
+                    data=factories.make_attachment_dict(  # type: ignore
                         filename="test6.jpg",
                         size=12,
                         url="http://example.com/test6.jpg",
                         proxy_url="http://example.com/test6.jpg",
-                        content_type="image/jpeg",  # type: ignore
+                        content_type="image/jpeg",
                     ),
                 ),
             ],
@@ -189,32 +189,32 @@ class TestStoryFile:
             attachments=[
                 discord.Attachment(
                     state=backend.get_state(),
-                    data=factories.make_attachment_dict(
+                    data=factories.make_attachment_dict(  # type: ignore
                         filename="test4.jpg",
                         size=12,
                         url="http://example.com/test4.jpg",
                         proxy_url="http://example.com/test4.jpg",
-                        content_type="image/jpeg",  # type: ignore
+                        content_type="image/jpeg",
                     ),
                 ),
                 discord.Attachment(
                     state=backend.get_state(),
-                    data=factories.make_attachment_dict(
+                    data=factories.make_attachment_dict(  # type: ignore
                         filename="test5.txt",
                         size=12,
                         url="http://example.com/test5.txt",
                         proxy_url="http://example.com/test5.txt",
-                        content_type="text/plain",  # type: ignore
+                        content_type="text/plain",
                     ),
                 ),
                 discord.Attachment(
                     state=backend.get_state(),
-                    data=factories.make_attachment_dict(
+                    data=factories.make_attachment_dict(  # type: ignore
                         filename="test6.txt",
                         size=12,
                         url="http://example.com/test6.txt",
                         proxy_url="http://example.com/test6.txt",
-                        content_type="text/plain",  # type: ignore
+                        content_type="text/plain",
                     ),
                 ),
             ],
@@ -254,32 +254,32 @@ class TestStoryFile:
             attachments=[
                 discord.Attachment(
                     state=backend.get_state(),
-                    data=factories.make_attachment_dict(
+                    data=factories.make_attachment_dict(  # type: ignore
                         filename="test4.jpg",
                         size=12,
                         url="http://example.com/test4.jpg",
                         proxy_url="http://example.com/test4.jpg",
-                        content_type="image/jpeg",  # type: ignore
+                        content_type="image/jpeg",
                     ),
                 ),
                 discord.Attachment(
                     state=backend.get_state(),
-                    data=factories.make_attachment_dict(
+                    data=factories.make_attachment_dict(  # type: ignore
                         filename="test5.txt",
                         size=12,
                         url="http://example.com/test5.jpg",
                         proxy_url="http://example.com/test5.jpg",
-                        content_type="image/jpeg",  # type: ignore
+                        content_type="image/jpeg",
                     ),
                 ),
                 discord.Attachment(
                     state=backend.get_state(),
-                    data=factories.make_attachment_dict(
+                    data=factories.make_attachment_dict(  # type: ignore
                         filename="test6.jpg",
                         size=12,
                         url="http://example.com/test6.jpg",
                         proxy_url="http://example.com/test6.jpg",
-                        content_type="image/jpeg",  # type: ignore
+                        content_type="image/jpeg",
                     ),
                 ),
             ],
@@ -345,12 +345,12 @@ class TestAttachment:
         a = Attachment(
             discord.Attachment(
                 state=backend.get_state(),
-                data=factories.make_attachment_dict(
+                data=factories.make_attachment_dict(  # type: ignore
                     filename="test.txt",
                     size=12,
                     url="http://example.com/test.txt",
                     proxy_url="http://example.com/test.txt",
-                    content_type="text/plain",  # type: ignore
+                    content_type="text/plain",
                 ),
             )
         )
@@ -361,12 +361,12 @@ class TestAttachment:
         a = Attachment.from_attachment(
             discord.Attachment(
                 state=backend.get_state(),
-                data=factories.make_attachment_dict(
+                data=factories.make_attachment_dict(  # type: ignore
                     filename="test.txt",
                     size=12,
                     url="http://example.com/test.txt",
                     proxy_url="http://example.com/test.txt",
-                    content_type="text/plain",  # type: ignore
+                    content_type="text/plain",
                 ),
             )
         )
@@ -376,12 +376,12 @@ class TestAttachment:
         a = Attachment.from_attachment(
             discord.Attachment(
                 state=backend.get_state(),
-                data=factories.make_attachment_dict(
+                data=factories.make_attachment_dict(  # type: ignore
                     filename="test.txt",
                     size=12,
                     url="http://example.com/test.txt",
                     proxy_url="http://example.com/test.txt",
-                    content_type="image/jpeg",  # type: ignore
+                    content_type="image/jpeg",
                 ),
             )
         )
