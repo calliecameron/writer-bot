@@ -1,7 +1,7 @@
-from typing import TYPE_CHECKING, Any, MutableMapping, Optional
 import contextvars
 import logging
 from types import TracebackType
+from typing import TYPE_CHECKING, Any, MutableMapping, Optional
 
 if TYPE_CHECKING:
     _LoggerAdapter = logging.LoggerAdapter[logging.Logger]
