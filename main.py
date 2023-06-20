@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-from typing import Any
 import argparse
 import logging
+from typing import Any
+
 import discord
 from discord.ext import commands
+
 import writer_bot.stories
 
 
