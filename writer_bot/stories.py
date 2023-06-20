@@ -1,17 +1,20 @@
-from typing import Optional
-from abc import ABC, abstractmethod
 import asyncio
+import datetime
 import os
 import pathlib
 import re
 import subprocess
 import tempfile
+from abc import ABC, abstractmethod
+from typing import Optional
+
 import aiohttp
 import discord
-from discord.ext import commands
 import urlextract
-from writer_bot import utils
+from discord import app_commands
+from discord.ext import commands, tasks
 
+from writer_bot import utils
 
 WORDCOUNT_CONTENT_TYPES = frozenset(["text/plain", "application/pdf"])
 WORDCOUNT_MAX_SIZE = 30 * 1024 * 1024
@@ -219,18 +222,21 @@ class StoryThread:
         return title, wordcount
 
 
-class Stories(commands.Cog):
+@app_commands.guild_only()
+class Stories(commands.GroupCog, name="stories"):
     def __init__(self, bot: commands.Bot, story_forum_id: int) -> None:
         super().__init__()
         self._bot = bot
         self._story_forum_id = story_forum_id
         self._story_forum: discord.ForumChannel = None  # type: ignore
-        self._actively_processing: set[int] = set()
+        self._processing_threads: set[int] = set()
+        self._processing_refresh = False
+        self.refresh_cron.start()  # pylint: disable=no-member
 
     async def cog_load(self) -> None:
         story_forum = await self._bot.fetch_channel(self._story_forum_id)
         if not isinstance(story_forum, discord.ForumChannel):
-            raise ValueError("story_forum_id must be a forum channel")
+            raise discord.DiscordException("story_forum_id must be a forum channel")
         self._story_forum = story_forum
 
     @commands.Cog.listener()
@@ -255,19 +261,62 @@ class Stories(commands.Cog):
         if isinstance(channel, discord.Thread) and channel.parent_id == self._story_forum.id:
             await self.process_thread(channel)
 
-    @commands.command()
-    async def refresh(self, ctx: commands.Context[commands.Bot]) -> None:
-        await ctx.reply("Refreshing all stories in the forum...")
+    @app_commands.command()  # type: ignore
+    @app_commands.checks.has_permissions(manage_threads=True)
+    async def refresh(self, interaction: discord.Interaction) -> None:
+        if self._processing_refresh:
+            await interaction.response.send_message("Error: a refresh is already running")
+            _log.error("refresh already running")
+            return
+        self._processing_refresh = True
+
+        with utils.LogContext("Stories.refresh"):
+            try:
+                _log.info("started")
+                await interaction.response.defer()
+                await self.process_all_threads()
+                m = await interaction.original_response()
+                await m.edit(content="Finished refreshing stories")
+            finally:
+                _log.info("finished")
+                self._processing_refresh = False
+
+    @refresh.error
+    async def refresh_error(
+        self, interaction: discord.Interaction, e: app_commands.AppCommandError
+    ) -> None:
+        with utils.LogContext("Stories.refresh_error"):
+            _log.error(str(e))
+            await interaction.response.send_message("Error: " + str(e))
+
+    @tasks.loop(time=[datetime.time(hour=0)])
+    async def refresh_cron(self) -> None:
+        if self._processing_refresh:
+            _log.error("refresh already running")
+            return
+        self._processing_refresh = True
+
+        with utils.LogContext("Stories.refresh_cron"):
+            try:
+                _log.info("started")
+                await self.process_all_threads()
+            finally:
+                _log.info("finished")
+                self._processing_refresh = False
+
+    @refresh_cron.before_loop
+    async def before_refresh_cron(self) -> None:
+        await self._bot.wait_until_ready()
+
+    async def process_all_threads(self) -> None:
         for thread in self._story_forum.threads:
             await self.process_thread(thread)
-        await ctx.reply("Finished refreshing stories")
 
     async def process_thread(self, thread: discord.Thread) -> None:
-        if thread.id in self._actively_processing:
+        if thread.id in self._processing_threads:
             return
-        self._actively_processing.add(thread.id)
+        self._processing_threads.add(thread.id)
         try:
-            t = StoryThread(thread)
-            await t.update()
+            await StoryThread(thread).update()
         finally:
-            self._actively_processing.remove(thread.id)
+            self._processing_threads.remove(thread.id)

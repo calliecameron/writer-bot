@@ -17,6 +17,7 @@ class Bot(commands.Bot):
 
     async def on_ready(self) -> None:
         await self.add_cog(writer_bot.stories.Stories(self, self._story_forum_id))
+        await self.tree.sync()
         logging.getLogger(__name__).info("Connected as user: %s", self.user)
 
 
@@ -33,7 +34,7 @@ def main() -> None:
     intents.message_content = True
     intents.members = True
 
-    client = Bot(args.story_forum_id, "$", intents=intents)
+    client = Bot(args.story_forum_id, [], intents=intents)
 
     client.run(token, root_logger=True)
 
