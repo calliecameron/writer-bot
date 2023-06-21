@@ -1,15 +1,13 @@
-import asyncio
 import datetime
-import os
-import pathlib
+import io
 import re
-import subprocess
-import tempfile
 from abc import ABC, abstractmethod
 from typing import Optional
 
 import aiohttp
 import discord
+import pdfminer.high_level
+import pdfminer.psparser
 import urlextract
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -18,7 +16,6 @@ from writer_bot import utils
 
 WORDCOUNT_CONTENT_TYPES = frozenset(["text/plain", "application/pdf"])
 WORDCOUNT_MAX_SIZE = 30 * 1024 * 1024
-WORDCOUNT_SCRIPT = str(pathlib.Path(__file__).resolve().parent.parent / "bin" / "wordcount.sh")
 
 _log = utils.Logger(__name__)
 
@@ -45,50 +42,28 @@ class StoryFile(ABC):
 
     async def wordcount(self) -> int:
         try:
-            filename = None
-            try:
-                with tempfile.NamedTemporaryFile(delete=False) as f:
-                    filename = f.name
-                _log.info("downloading %s to %s...", self.description, filename)
-                await self._download_to(filename)
-                _log.info("download finished")
-                return self._rounded_wordcount(await self._wordcount_file(filename))
-            finally:
-                if filename:
-                    os.remove(filename)
-                    _log.info(f"deleted {filename}")
-        except (discord.DiscordException, OSError) as e:
+            _log.info("downloading %s...", self.description)
+            data = await self._download()
+            _log.info("download finished")
+            return self._rounded_wordcount(await self._raw_wordcount(data))
+        except discord.DiscordException as e:
             _log.error("wordcount failed: %s", e)
-            raise discord.DiscordException(str(e)) from e
+            raise
 
     @abstractmethod
-    async def _download_to(self, filename: str) -> None:
+    async def _download(self) -> bytes:
         raise NotImplementedError
 
-    async def _wordcount_file(self, filename: str) -> int:
-        p = await asyncio.create_subprocess_exec(
-            WORDCOUNT_SCRIPT,
-            filename,
-            self._content_type,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        stdout, stderr = await p.communicate()
-
-        if p.returncode != 0:
-            raise discord.DiscordException(
-                f"retcode {p.returncode}, stderr: {stderr.decode('utf-8').strip()}"
-            )
-
-        try:
-            wordcount = int(stdout.decode("utf-8").strip())
-        except ValueError as e:
-            raise discord.DiscordException(str(e)) from e
-
-        if wordcount < 0:
-            raise discord.DiscordException(f"wordcount must be positive, got {wordcount}")
-
-        return wordcount
+    async def _raw_wordcount(self, data: bytes) -> int:
+        if self._content_type == "text/plain":
+            return len(data.decode(encoding="utf-8").split())
+        if self._content_type == "application/pdf":
+            try:
+                with io.BytesIO(data) as b:
+                    return len(pdfminer.high_level.extract_text(b).split())
+            except pdfminer.psparser.PSException as e:
+                raise discord.DiscordException(str(e)) from e
+        raise discord.DiscordException(f"can't wordcount content type {self._content_type}")
 
     @staticmethod
     def _rounded_wordcount(wordcount: int) -> int:
@@ -119,13 +94,11 @@ class Link(StoryFile):
     def __init__(self, url: str, content_type: str, size: Optional[int]) -> None:
         super().__init__("link", url, content_type, size)
 
-    async def _download_to(self, filename: str) -> None:
+    async def _download(self) -> bytes:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(self._url) as response:
-                    data = await response.read()
-            with open(filename, mode="wb") as f:
-                f.write(data)
+                    return await response.read()
         except (aiohttp.ClientError, OSError) as e:
             raise discord.DiscordException(str(e)) from e
 
@@ -157,8 +130,8 @@ class Attachment(StoryFile):
         )
         self._attachment = attachment
 
-    async def _download_to(self, filename: str) -> None:
-        await self._attachment.save(pathlib.PurePath(filename))
+    async def _download(self) -> bytes:
+        return await self._attachment.read()
 
     @staticmethod
     def from_attachment(attachment: discord.Attachment) -> "Optional[Attachment]":

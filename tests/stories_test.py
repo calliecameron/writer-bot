@@ -1,4 +1,3 @@
-import pathlib
 import unittest.mock
 from typing import Any
 
@@ -31,9 +30,8 @@ class FakeStoryFile(StoryFile):
     def __init__(self, *args: Any) -> None:
         super().__init__("fake", *args)
 
-    async def _download_to(self, filename: str) -> None:
-        with open(filename, mode="w", encoding="utf-8") as f:
-            f.write("foo bar baz\n")
+    async def _download(self) -> bytes:
+        return "foo bar baz\n".encode(encoding="utf-8")
 
 
 class TestStoryFile:
@@ -56,40 +54,16 @@ class TestStoryFile:
         assert not FakeStoryFile("foo", "bar", None).can_wordcount()
 
     @pytest.mark.asyncio
-    async def test_wordcount_file(self) -> None:
-        f = FakeStoryFile("foo", "bar", 10)
-        with unittest.mock.patch(
-            "writer_bot.stories.WORDCOUNT_SCRIPT",
-            str(pathlib.Path(__file__).resolve().parent.parent / "testdata" / "wordcount_good.sh"),
-        ):
-            assert await f._wordcount_file("foo") == 10
+    async def test_raw_wordcount(self) -> None:
+        with open("testdata/test.txt", mode="rb") as f:
+            assert await FakeStoryFile("foo", "text/plain", 10)._raw_wordcount(f.read()) == 4
 
-        with unittest.mock.patch(
-            "writer_bot.stories.WORDCOUNT_SCRIPT",
-            str(pathlib.Path(__file__).resolve().parent.parent / "testdata" / "wordcount_error.sh"),
-        ):
-            with pytest.raises(discord.DiscordException):
-                await f._wordcount_file("foo")
+        with open("testdata/test.pdf", mode="rb") as f:
+            assert await FakeStoryFile("foo", "application/pdf", 10)._raw_wordcount(f.read()) == 229
 
-        with unittest.mock.patch(
-            "writer_bot.stories.WORDCOUNT_SCRIPT",
-            str(
-                pathlib.Path(__file__).resolve().parent.parent / "testdata" / "wordcount_string.sh"
-            ),
-        ):
+        with open("testdata/test.txt", mode="rb") as f:
             with pytest.raises(discord.DiscordException):
-                await f._wordcount_file("foo")
-
-        with unittest.mock.patch(
-            "writer_bot.stories.WORDCOUNT_SCRIPT",
-            str(
-                pathlib.Path(__file__).resolve().parent.parent
-                / "testdata"
-                / "wordcount_negative.sh"
-            ),
-        ):
-            with pytest.raises(discord.DiscordException):
-                await f._wordcount_file("foo")
+                await FakeStoryFile("foo", "image/jpeg", 10)._raw_wordcount(f.read())
 
     def test_rounded_wordcount(self) -> None:
         assert StoryFile._rounded_wordcount(10) == 100
@@ -309,12 +283,12 @@ class TestStoryFile:
 
 class TestLink:
     @pytest.mark.asyncio
-    async def test_download_to(self, fs: fake_filesystem.FakeFilesystem) -> None:
+    async def test_download(self) -> None:
         with aioresponses() as m:
             m.get("http://example.com/test.txt", status=200, body="foo bar baz")
             l = Link("http://example.com/test.txt", "text/plain", None)
-            await l._download_to("foo.txt")
-            assert pathlib.Path("foo.txt").read_text(encoding="utf-8").strip() == "foo bar baz"
+            data = await l._download()
+            assert data.decode(encoding="utf-8").strip() == "foo bar baz"
 
     @pytest.mark.asyncio
     async def test_from_url(self) -> None:
@@ -340,7 +314,7 @@ class TestLink:
 
 class TestAttachment:
     @pytest.mark.asyncio
-    async def test_download_to(self, bot: commands.Bot, fs: fake_filesystem.FakeFilesystem) -> None:
+    async def test_download(self, bot: commands.Bot, fs: fake_filesystem.FakeFilesystem) -> None:
         fs.create_file("test.txt", contents="foo bar baz 2")
         a = Attachment(
             discord.Attachment(
@@ -354,8 +328,8 @@ class TestAttachment:
                 ),
             )
         )
-        await a._download_to("foo.txt")
-        assert pathlib.Path("foo.txt").read_text(encoding="utf-8").strip() == "foo bar baz 2"
+        data = await a._download()
+        assert data.decode(encoding="utf-8").strip() == "foo bar baz 2"
 
     def test_from_attachment(self) -> None:
         a = Attachment.from_attachment(
