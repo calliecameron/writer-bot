@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
 import argparse
-import logging
 from typing import Any
 
 import discord
 from discord.ext import commands
 
 import writer_bot.stories
+import writer_bot.utils
+
+_log = writer_bot.utils.Logger()
 
 
 class Bot(commands.Bot):
@@ -18,7 +20,7 @@ class Bot(commands.Bot):
     async def on_ready(self) -> None:
         await self.add_cog(writer_bot.stories.Stories(self, self._story_forum_id))
         await self.tree.sync()
-        logging.getLogger(__name__).info("Connected as user: %s", self.user)
+        _log.info("Connected as user: %s", self.user)
 
 
 def main() -> None:

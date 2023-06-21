@@ -1,5 +1,6 @@
 import contextvars
 import functools
+import inspect
 import logging
 from types import TracebackType
 from typing import (
@@ -51,7 +52,7 @@ class LogContext:
             self._old_value = None
 
 
-class Logger(_LoggerAdapter):
+class _Logger(_LoggerAdapter):
     def __init__(self, name: str) -> None:
         super().__init__(logging.getLogger(name))
 
@@ -64,10 +65,18 @@ class Logger(_LoggerAdapter):
         return super().process(msg, kwargs)
 
 
+class Logger(_Logger):
+    def __init__(self) -> None:
+        module = inspect.getmodule(inspect.stack()[1].frame)
+        if not module:
+            raise ValueError("Can't get caller module")
+        super().__init__(module.__name__)
+
+
 def logged(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[Any, Any, T]]:
     @functools.wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-        log = Logger(func.__module__)
+        log = _Logger(func.__module__)
         with LogContext(func.__qualname__):
             log.info("started")
             try:

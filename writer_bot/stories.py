@@ -17,7 +17,7 @@ from writer_bot import utils
 WORDCOUNT_CONTENT_TYPES = frozenset(["text/plain", "application/pdf"])
 WORDCOUNT_MAX_SIZE = 30 * 1024 * 1024
 
-_log = utils.Logger(__name__)
+_log = utils.Logger()
 
 
 class StoryFile(ABC):

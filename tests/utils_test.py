@@ -6,6 +6,8 @@ import pytest
 
 from writer_bot import utils
 
+# pylint: disable=protected-access
+
 
 def test_log_context() -> None:
     output = io.StringIO()
@@ -16,7 +18,7 @@ def test_log_context() -> None:
     log = logging.getLogger(name)
     log.setLevel(logging.DEBUG)
     log.addHandler(handler)
-    logger = utils.Logger(name)
+    logger = utils._Logger(name)
 
     # The context is task-local, so interleaved log entries from different tasks should have their
     # own context.
@@ -67,7 +69,7 @@ async def test_logged() -> None:
     log = logging.getLogger(__name__)
     log.setLevel(logging.DEBUG)
     log.addHandler(handler)
-    logger = utils.Logger(__name__)
+    logger = utils.Logger()
 
     @utils.logged
     async def test1() -> None:
