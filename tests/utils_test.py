@@ -2,6 +2,8 @@ import asyncio
 import io
 import logging
 
+import pytest
+
 from writer_bot import utils
 
 
@@ -52,5 +54,31 @@ context3: test3
 context1: context2: baz
 context1: quux
 yay
+"""
+    )
+
+
+@pytest.mark.asyncio
+async def test_logged() -> None:
+    output = io.StringIO()
+    handler = logging.StreamHandler(output)
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    log = logging.getLogger(__name__)
+    log.setLevel(logging.DEBUG)
+    log.addHandler(handler)
+    logger = utils.Logger(__name__)
+
+    @utils.logged
+    async def test1() -> None:
+        logger.info("foo")
+
+    await test1()
+
+    assert (
+        output.getvalue()
+        == """test_logged.<locals>.test1: started
+test_logged.<locals>.test1: foo
+test_logged.<locals>.test1: finished
 """
     )

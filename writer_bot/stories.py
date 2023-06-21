@@ -213,16 +213,19 @@ class Stories(commands.GroupCog, name="stories"):
         self._story_forum = story_forum
 
     @commands.Cog.listener()
+    @utils.logged
     async def on_thread_create(self, thread: discord.Thread) -> None:
         if thread.parent_id == self._story_forum.id:
             await self.process_thread(thread)
 
     @commands.Cog.listener()
+    @utils.logged
     async def on_thread_update(self, _: discord.Thread, after: discord.Thread) -> None:
         if after.parent_id == self._story_forum.id:
             await self.process_thread(after)
 
     @commands.Cog.listener()
+    @utils.logged
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
         if payload.message_id != payload.channel_id:
             # Not a thread starter message
@@ -236,6 +239,7 @@ class Stories(commands.GroupCog, name="stories"):
 
     @app_commands.command()  # type: ignore
     @app_commands.checks.has_permissions(manage_threads=True)
+    @utils.logged
     async def refresh(self, interaction: discord.Interaction) -> None:
         if self._processing_refresh:
             await interaction.response.send_message("Error: a refresh is already running")
@@ -243,39 +247,34 @@ class Stories(commands.GroupCog, name="stories"):
             return
         self._processing_refresh = True
 
-        with utils.LogContext("Stories.refresh"):
-            try:
-                _log.info("started")
-                await interaction.response.defer()
-                await self.process_all_threads()
-                m = await interaction.original_response()
-                await m.edit(content="Finished refreshing stories")
-            finally:
-                _log.info("finished")
-                self._processing_refresh = False
+        try:
+            await interaction.response.defer()
+            await self.process_all_threads()
+            m = await interaction.original_response()
+            await m.edit(content="Finished refreshing stories")
+        finally:
+            self._processing_refresh = False
 
     @refresh.error
+    @utils.logged
     async def refresh_error(
         self, interaction: discord.Interaction, e: app_commands.AppCommandError
     ) -> None:
-        with utils.LogContext("Stories.refresh_error"):
-            _log.error(str(e))
-            await interaction.response.send_message("Error: " + str(e))
+        _log.error(str(e))
+        await interaction.response.send_message("Error: " + str(e))
 
     @tasks.loop(time=[datetime.time(hour=0)])
+    @utils.logged
     async def refresh_cron(self) -> None:
         if self._processing_refresh:
             _log.error("refresh already running")
             return
         self._processing_refresh = True
 
-        with utils.LogContext("Stories.refresh_cron"):
-            try:
-                _log.info("started")
-                await self.process_all_threads()
-            finally:
-                _log.info("finished")
-                self._processing_refresh = False
+        try:
+            await self.process_all_threads()
+        finally:
+            self._processing_refresh = False
 
     @refresh_cron.before_loop
     async def before_refresh_cron(self) -> None:

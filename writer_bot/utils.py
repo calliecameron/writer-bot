@@ -1,12 +1,25 @@
 import contextvars
+import functools
 import logging
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, MutableMapping, Optional
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Coroutine,
+    MutableMapping,
+    Optional,
+    ParamSpec,
+    TypeVar,
+)
 
 if TYPE_CHECKING:
     _LoggerAdapter = logging.LoggerAdapter[logging.Logger]
 else:
     _LoggerAdapter = logging.LoggerAdapter
+
+T = TypeVar("T")
+P = ParamSpec("P")
 
 _log_context: contextvars.ContextVar[str] = contextvars.ContextVar("log_context", default="")
 
@@ -49,3 +62,17 @@ class Logger(_LoggerAdapter):
         if value:
             msg = value + ": " + msg
         return super().process(msg, kwargs)
+
+
+def logged(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[Any, Any, T]]:
+    @functools.wraps(func)
+    async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
+        log = Logger(func.__module__)
+        with LogContext(func.__qualname__):
+            log.info("started")
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                log.info("finished")
+
+    return wrapper
