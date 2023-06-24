@@ -21,8 +21,11 @@ _log = utils.Logger()
 
 
 class StoryFile(ABC):
-    def __init__(self, kind: str, url: str, content_type: str, size: Optional[int]) -> None:
+    def __init__(
+        self, message: discord.Message, kind: str, url: str, content_type: str, size: Optional[int]
+    ) -> None:
         super().__init__()
+        self._message_id = message.id
         self._kind = kind
         self._url = url
         self._content_type = content_type
@@ -31,7 +34,7 @@ class StoryFile(ABC):
     @property
     def description(self) -> str:
         return (
-            f"{self._kind} {self._url} ({self._content_type}, "
+            f"message {self._message_id} {self._kind} {self._url} ({self._content_type}, "
             f"{self._size if self._size else 'unknown'} bytes)"
         )
 
@@ -76,14 +79,14 @@ class StoryFile(ABC):
     @staticmethod
     async def from_message(m: discord.Message) -> "Optional[StoryFile]":
         for a in m.attachments:
-            at = Attachment.from_attachment(a)
+            at = Attachment.from_attachment(m, a)
             if at:
                 return at
 
         for url in urlextract.URLExtract().find_urls(
             m.content, only_unique=True, with_schema_only=True
         ):
-            l = await Link.from_url(url)
+            l = await Link.from_url(m, url)
             if l:
                 return l
 
@@ -91,8 +94,10 @@ class StoryFile(ABC):
 
 
 class Link(StoryFile):
-    def __init__(self, url: str, content_type: str, size: Optional[int]) -> None:
-        super().__init__("link", url, content_type, size)
+    def __init__(
+        self, message: discord.Message, url: str, content_type: str, size: Optional[int]
+    ) -> None:
+        super().__init__(message, "link", url, content_type, size)
 
     async def _download(self) -> bytes:
         try:
@@ -103,11 +108,11 @@ class Link(StoryFile):
             raise discord.DiscordException(str(e)) from e
 
     @staticmethod
-    async def from_url(url: str) -> "Optional[Link]":
+    async def from_url(m: discord.Message, url: str) -> "Optional[Link]":
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.head(url) as response:
-                    l = Link(url, response.content_type, response.content_length)
+                    l = Link(m, url, response.content_type, response.content_length)
         except aiohttp.ClientError as e:
             raise discord.DiscordException(str(e)) from e
         if l.can_wordcount():
@@ -118,11 +123,12 @@ class Link(StoryFile):
 
 
 class Attachment(StoryFile):
-    def __init__(self, attachment: discord.Attachment) -> None:
+    def __init__(self, message: discord.Message, attachment: discord.Attachment) -> None:
         content_type = ""
         if attachment.content_type:
             content_type = attachment.content_type.split(";")[0].strip()
         super().__init__(
+            message,
             "attachment",
             attachment.url,
             content_type,
@@ -134,8 +140,10 @@ class Attachment(StoryFile):
         return await self._attachment.read()
 
     @staticmethod
-    def from_attachment(attachment: discord.Attachment) -> "Optional[Attachment]":
-        a = Attachment(attachment)
+    def from_attachment(
+        m: discord.Message, attachment: discord.Attachment
+    ) -> "Optional[Attachment]":
+        a = Attachment(m, attachment)
         if a.can_wordcount():
             _log.info("can wordcount %s", a.description)
             return a

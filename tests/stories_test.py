@@ -1,5 +1,5 @@
 import unittest.mock
-from typing import Any
+from typing import Any, cast
 
 import discord
 import discord.ext.test as dpytest
@@ -26,9 +26,15 @@ async def bot() -> commands.Bot:
     return b
 
 
+class FakeMessage:
+    def __init__(self) -> None:
+        super().__init__()
+        self.id = 1234
+
+
 class FakeStoryFile(StoryFile):
     def __init__(self, *args: Any) -> None:
-        super().__init__("fake", *args)
+        super().__init__(cast(discord.Message, FakeMessage()), "fake", *args)
 
     async def _download(self) -> bytes:
         return "foo bar baz\n".encode(encoding="utf-8")
@@ -37,11 +43,12 @@ class FakeStoryFile(StoryFile):
 class TestStoryFile:
     def test_description(self) -> None:
         assert (
-            FakeStoryFile("foo", "text/plain", 10).description == "fake foo (text/plain, 10 bytes)"
+            FakeStoryFile("foo", "text/plain", 10).description
+            == "message 1234 fake foo (text/plain, 10 bytes)"
         )
         assert (
             FakeStoryFile("foo", "text/plain", None).description
-            == "fake foo (text/plain, unknown bytes)"
+            == "message 1234 fake foo (text/plain, unknown bytes)"
         )
 
     def test_can_wordcount(self) -> None:
@@ -213,7 +220,10 @@ class TestStoryFile:
 
             s = await StoryFile.from_message(m)
             assert s is not None
-            assert s.description == "attachment http://example.com/test5.txt (text/plain, 12 bytes)"
+            assert (
+                s.description
+                == f"message {m.id} attachment http://example.com/test5.txt (text/plain, 12 bytes)"
+            )
 
     @pytest.mark.asyncio
     async def test_from_message_link(self, bot: commands.Bot) -> None:
@@ -278,7 +288,10 @@ class TestStoryFile:
 
             s = await StoryFile.from_message(m)
             assert s is not None
-            assert s.description == "link http://example.com/test2.txt (text/plain, 10 bytes)"
+            assert (
+                s.description
+                == f"message {m.id} link http://example.com/test2.txt (text/plain, 10 bytes)"
+            )
 
 
 class TestLink:
@@ -286,7 +299,12 @@ class TestLink:
     async def test_download(self) -> None:
         with aioresponses() as m:
             m.get("http://example.com/test.txt", status=200, body="foo bar baz")
-            l = Link("http://example.com/test.txt", "text/plain", None)
+            l = Link(
+                cast(discord.Message, FakeMessage()),
+                "http://example.com/test.txt",
+                "text/plain",
+                None,
+            )
             data = await l._download()
             assert data.decode(encoding="utf-8").strip() == "foo bar baz"
 
@@ -298,9 +316,14 @@ class TestLink:
                 status=200,
                 headers={"content-type": "text/plain", "content-length": "10"},
             )
-            l = await Link.from_url("http://example.com/test.txt")
+            l = await Link.from_url(
+                cast(discord.Message, FakeMessage()), "http://example.com/test.txt"
+            )
             assert l is not None
-            assert l.description == "link http://example.com/test.txt (text/plain, 10 bytes)"
+            assert (
+                l.description
+                == "message 1234 link http://example.com/test.txt (text/plain, 10 bytes)"
+            )
 
         with aioresponses() as m:
             m.head(
@@ -308,7 +331,9 @@ class TestLink:
                 status=200,
                 headers={"content-type": "image/jpeg"},
             )
-            l = await Link.from_url("http://example.com/test.txt")
+            l = await Link.from_url(
+                cast(discord.Message, FakeMessage()), "http://example.com/test.txt"
+            )
             assert l is None
 
 
@@ -317,6 +342,7 @@ class TestAttachment:
     async def test_download(self, bot: commands.Bot, fs: fake_filesystem.FakeFilesystem) -> None:
         fs.create_file("test.txt", contents="foo bar baz 2")
         a = Attachment(
+            cast(discord.Message, FakeMessage()),
             discord.Attachment(
                 state=backend.get_state(),
                 data=factories.make_attachment_dict(  # type: ignore
@@ -326,13 +352,14 @@ class TestAttachment:
                     proxy_url="http://example.com/test.txt",
                     content_type="text/plain",
                 ),
-            )
+            ),
         )
         data = await a._download()
         assert data.decode(encoding="utf-8").strip() == "foo bar baz 2"
 
     def test_from_attachment(self) -> None:
         a = Attachment.from_attachment(
+            cast(discord.Message, FakeMessage()),
             discord.Attachment(
                 state=backend.get_state(),
                 data=factories.make_attachment_dict(  # type: ignore
@@ -342,12 +369,16 @@ class TestAttachment:
                     proxy_url="http://example.com/test.txt",
                     content_type="text/plain",
                 ),
-            )
+            ),
         )
         assert a is not None
-        assert a.description == "attachment http://example.com/test.txt (text/plain, 12 bytes)"
+        assert (
+            a.description
+            == "message 1234 attachment http://example.com/test.txt (text/plain, 12 bytes)"
+        )
 
         a = Attachment.from_attachment(
+            cast(discord.Message, FakeMessage()),
             discord.Attachment(
                 state=backend.get_state(),
                 data=factories.make_attachment_dict(  # type: ignore
@@ -357,7 +388,7 @@ class TestAttachment:
                     proxy_url="http://example.com/test.txt",
                     content_type="image/jpeg",
                 ),
-            )
+            ),
         )
         assert a is None
 
