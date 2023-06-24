@@ -238,16 +238,24 @@ class Stories(commands.GroupCog, name="stories"):
 
     @commands.Cog.listener()
     @utils.logged
-    async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
-        if payload.message_id != payload.channel_id:
-            # Not a thread starter message
-            return
+    async def on_message(self, message: discord.Message) -> None:
+        if (
+            isinstance(message.channel, discord.Thread)
+            and message.channel.parent_id == self._story_forum_id
+            and message.author.id == message.channel.owner_id
+        ):
+            await self.process_thread(message.channel)
 
+    @commands.Cog.listener()
+    @utils.logged
+    async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
         channel = self._bot.get_channel(payload.channel_id) or await self._bot.fetch_channel(
             payload.channel_id
         )
         if isinstance(channel, discord.Thread) and channel.parent_id == self._story_forum.id:
-            await self.process_thread(channel)
+            m = payload.cached_message or await channel.fetch_message(payload.message_id)
+            if m.author.id == channel.owner_id:
+                await self.process_thread(channel)
 
     @app_commands.command(description="Refresh the wordcount for all stories.")  # type: ignore
     @app_commands.checks.has_permissions(manage_threads=True)
