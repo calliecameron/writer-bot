@@ -1,5 +1,5 @@
 import unittest.mock
-from typing import Any, cast
+from typing import Any, AsyncIterator, cast
 
 import discord
 import discord.ext.test as dpytest
@@ -475,19 +475,22 @@ class TestStoryThread:
         mock.assert_has_calls([unittest.mock.call(name=expected)] if called else [])
 
     @pytest.mark.asyncio
-    async def test_update_none(self, bot: commands.Bot) -> None:
-        u = backend.make_user("user", 1)
+    async def test_find_wordcount_file_none(self, bot: commands.Bot) -> None:
+        u1 = backend.make_user("user1", 1)
+        u2 = backend.make_user("user2", 1)
         g = backend.make_guild("test")
         c = backend.make_text_channel("channel", g)
-        m = backend.make_message("foo bar", u, c)
+        m1 = backend.make_message("foo bar", u1, c)
+        m2 = backend.make_message("http://example.com/test,txt", u2, c)
+        m3 = backend.make_message("blah yay", u1, c)
         t = discord.Thread(
             guild=g,
             state=backend.get_state(),
             data={
-                "id": m.id,
+                "id": m1.id,
                 "guild_id": g.id,
                 "parent_id": c.id,
-                "owner_id": u.id,
+                "owner_id": u1.id,
                 "name": "foo bar",
                 "type": 11,
                 "message_count": 1,
@@ -501,74 +504,32 @@ class TestStoryThread:
             },
         )
 
-        output = ""
+        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+            for m in (m1, m2, m3):
+                yield m
 
-        async def edit(_: Any, name: str) -> None:
-            nonlocal output
-            output = name
+        with unittest.mock.patch.object(discord.Thread, "history", history):
+            f = await StoryThread(t)._find_wordcount_file()
 
-        with unittest.mock.patch.object(discord.Thread, "edit", edit):
-            await StoryThread(t).update()
-
-        assert output == ""
+        assert f is None
 
     @pytest.mark.asyncio
-    async def test_update_no_starter_message(self, bot: commands.Bot) -> None:
-        u = backend.make_user("user", 1)
+    async def test_find_wordcount_file_first_message(self, bot: commands.Bot) -> None:
+        u1 = backend.make_user("user1", 1)
+        u2 = backend.make_user("user2", 1)
         g = backend.make_guild("test")
         c = backend.make_text_channel("channel", g)
-        m = backend.make_message("foo bar", u, c)
+        m1 = backend.make_message("foo bar http://example.com/test1.txt", u1, c)
+        m2 = backend.make_message("baz quux", u2, c)
+        m3 = backend.make_message("blah yay http://example.com/test2.txt", u1, c)
         t = discord.Thread(
             guild=g,
             state=backend.get_state(),
             data={
-                "id": m.id,
+                "id": m1.id,
                 "guild_id": g.id,
                 "parent_id": c.id,
-                "owner_id": u.id,
-                "name": "foo bar",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                },
-            },
-        )
-        await m.delete()
-
-        output = ""
-
-        async def edit(_: Any, name: str) -> None:
-            nonlocal output
-            output = name
-
-        async def fetch_message(_: Any, *args: Any) -> Any:
-            raise discord.NotFound(backend.FakeRequest(404, "404"), "404")
-
-        with unittest.mock.patch.object(discord.Thread, "edit", edit):
-            with unittest.mock.patch.object(discord.Thread, "fetch_message", fetch_message):
-                await StoryThread(t).update()
-
-        assert output == ""
-
-    @pytest.mark.asyncio
-    async def test_update(self, bot: commands.Bot) -> None:
-        u = backend.make_user("user", 1)
-        g = backend.make_guild("test")
-        c = backend.make_text_channel("channel", g)
-        m = backend.make_message("foo http://example.com/test.txt bar", u, c)
-        t = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u.id,
+                "owner_id": u1.id,
                 "name": "foo bar",
                 "type": 11,
                 "message_count": 1,
@@ -582,20 +543,286 @@ class TestStoryThread:
             },
         )
 
-        output = ""
+        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+            for m in (m1, m2, m3):
+                yield m
 
-        async def edit(_: Any, name: str) -> None:
-            nonlocal output
-            output = name
-
-        with unittest.mock.patch.object(discord.Thread, "edit", edit):
+        with unittest.mock.patch.object(discord.Thread, "history", history):
             with aioresponses() as mock:
                 mock.head(
-                    "http://example.com/test.txt",
+                    "http://example.com/test1.txt",
                     status=200,
                     headers={"content-type": "text/plain", "content-length": "10"},
                 )
-                mock.get("http://example.com/test.txt", status=200, body="foo bar baz")
+                mock.head(
+                    "http://example.com/test2.txt",
+                    status=200,
+                    headers={"content-type": "text/plain", "content-length": "12"},
+                )
+                f = await StoryThread(t)._find_wordcount_file()
+
+        assert f is not None
+        assert (
+            f.description
+            == f"message {m1.id} link http://example.com/test1.txt (text/plain, 10 bytes)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_find_wordcount_file_last_message(self, bot: commands.Bot) -> None:
+        u1 = backend.make_user("user1", 1)
+        u2 = backend.make_user("user2", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m1 = backend.make_message("foo bar http://example.com/test1.jpg", u1, c)
+        m2 = backend.make_message("baz quux", u2, c)
+        m3 = backend.make_message("blah yay http://example.com/test2.txt", u1, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m1.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u1.id,
+                "name": "foo bar",
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": False,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+
+        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+            for m in (m1, m2, m3):
+                yield m
+
+        with unittest.mock.patch.object(discord.Thread, "history", history):
+            with aioresponses() as mock:
+                mock.head(
+                    "http://example.com/test1.jpg",
+                    status=200,
+                    headers={"content-type": "image/jpeg", "content-length": "10"},
+                )
+                mock.head(
+                    "http://example.com/test2.txt",
+                    status=200,
+                    headers={"content-type": "text/plain", "content-length": "12"},
+                )
+                f = await StoryThread(t)._find_wordcount_file()
+
+        assert f is not None
+        assert (
+            f.description
+            == f"message {m3.id} link http://example.com/test2.txt (text/plain, 12 bytes)"
+        )
+
+    @pytest.mark.asyncio
+    async def test_update_none(self, bot: commands.Bot) -> None:
+        u1 = backend.make_user("user1", 1)
+        u2 = backend.make_user("user2", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m1 = backend.make_message("foo bar", u1, c)
+        m2 = backend.make_message("baz quux http://example.com/test2.txt", u2, c)
+        m3 = backend.make_message("blah yay", u1, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m1.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u1.id,
+                "name": "foo bar",
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": False,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+
+        output = ""
+
+        async def edit(_: Any, name: str) -> None:
+            nonlocal output
+            output = name
+
+        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+            for m in (m1, m2, m3):
+                yield m
+
+        with unittest.mock.patch.object(discord.Thread, "edit", edit):
+            with unittest.mock.patch.object(discord.Thread, "history", history):
                 await StoryThread(t).update()
+
+        assert output == ""
+
+    @pytest.mark.asyncio
+    async def test_update_first_message(self, bot: commands.Bot) -> None:
+        u1 = backend.make_user("user1", 1)
+        u2 = backend.make_user("user2", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m1 = backend.make_message("foo http://example.com/test.txt bar", u1, c)
+        m2 = backend.make_message("baz quux http://example.com/test2.txt", u2, c)
+        m3 = backend.make_message("blah yay http://example.com/test3.txt", u1, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m1.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u1.id,
+                "name": "foo bar",
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": False,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+
+        output = ""
+
+        async def edit(_: Any, name: str) -> None:
+            nonlocal output
+            output = name
+
+        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+            for m in (m1, m2, m3):
+                yield m
+
+        with unittest.mock.patch.object(discord.Thread, "edit", edit):
+            with unittest.mock.patch.object(discord.Thread, "history", history):
+                with aioresponses() as mock:
+                    mock.head(
+                        "http://example.com/test.txt",
+                        status=200,
+                        headers={"content-type": "text/plain", "content-length": "10"},
+                    )
+                    mock.get("http://example.com/test.txt", status=200, body="foo bar baz")
+                    await StoryThread(t).update()
+
+        assert output == "foo bar [100 words]"
+
+    @pytest.mark.asyncio
+    async def test_update_last_message(self, bot: commands.Bot) -> None:
+        u1 = backend.make_user("user1", 1)
+        u2 = backend.make_user("user2", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m1 = backend.make_message("foo bar", u1, c)
+        m2 = backend.make_message("baz quux http://example.com/test2.txt", u2, c)
+        m3 = backend.make_message("blah yay http://example.com/test3.txt", u1, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m1.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u1.id,
+                "name": "foo bar",
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": False,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+
+        output = ""
+
+        async def edit(_: Any, name: str) -> None:
+            nonlocal output
+            output = name
+
+        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+            for m in (m1, m2, m3):
+                yield m
+
+        with unittest.mock.patch.object(discord.Thread, "edit", edit):
+            with unittest.mock.patch.object(discord.Thread, "history", history):
+                with aioresponses() as mock:
+                    mock.head(
+                        "http://example.com/test3.txt",
+                        status=200,
+                        headers={"content-type": "text/plain", "content-length": "10"},
+                    )
+                    mock.get("http://example.com/test3.txt", status=200, body="foo bar baz")
+                    await StoryThread(t).update()
+
+        assert output == "foo bar [100 words]"
+
+    @pytest.mark.asyncio
+    async def test_update_no_starter_message(self, bot: commands.Bot) -> None:
+        u1 = backend.make_user("user1", 1)
+        u2 = backend.make_user("user2", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m1 = backend.make_message("foo bar", u1, c)
+        m2 = backend.make_message("baz quux http://example.com/test2.txt", u2, c)
+        m3 = backend.make_message("blah yay http://example.com/test3.txt", u1, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m1.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u1.id,
+                "name": "foo bar",
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": False,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+        await m1.delete()
+
+        output = ""
+
+        async def edit(_: Any, name: str) -> None:
+            nonlocal output
+            output = name
+
+        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+            for m in (m2, m3):
+                yield m
+
+        with unittest.mock.patch.object(discord.Thread, "edit", edit):
+            with unittest.mock.patch.object(discord.Thread, "history", history):
+                with aioresponses() as mock:
+                    mock.head(
+                        "http://example.com/test3.txt",
+                        status=200,
+                        headers={"content-type": "text/plain", "content-length": "10"},
+                    )
+                    mock.get("http://example.com/test3.txt", status=200, body="foo bar baz")
+                    await StoryThread(t).update()
 
         assert output == "foo bar [100 words]"

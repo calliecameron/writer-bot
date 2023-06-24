@@ -160,15 +160,7 @@ class StoryThread:
         with utils.LogContext(f"thread {self._thread.id} ({self._thread.name})"):
             _log.info("updating...")
             try:
-                try:
-                    m = self._thread.starter_message or await self._thread.fetch_message(
-                        self._thread.id
-                    )
-                except discord.NotFound:
-                    _log.info("no starter message")
-                    return
-
-                story = await StoryFile.from_message(m)
+                story = await self._find_wordcount_file()
                 if not story:
                     _log.info("no wordcountable files")
                     return
@@ -179,6 +171,14 @@ class StoryThread:
                 raise
             finally:
                 _log.info("finished")
+
+    async def _find_wordcount_file(self) -> Optional[StoryFile]:
+        async for m in self._thread.history(oldest_first=True):
+            if m.author.id == self._thread.owner_id:
+                story = await StoryFile.from_message(m)
+                if story:
+                    return story
+        return None
 
     async def _set_wordcount(self, wordcount: int) -> None:
         title, existing_wordcount = self._parse_name()
