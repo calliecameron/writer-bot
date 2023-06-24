@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse
+import os
 from typing import Any
 
 import discord
@@ -24,19 +24,26 @@ class Bot(commands.Bot):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("token_file")
-    parser.add_argument("story_forum_id", type=int)
-    args = parser.parse_args()
+    token_file = os.getenv("TOKEN_FILE")
+    if not token_file:
+        raise ValueError("TOKEN_FILE environment variable not set")
 
-    with open(args.token_file, encoding="utf-8") as f:
+    story_forum_id_raw = os.getenv("STORY_FORUM_ID")
+    if not story_forum_id_raw:
+        raise ValueError("STORY_FORUM_ID environment variable not set")
+    try:
+        story_forum_id = int(story_forum_id_raw)
+    except ValueError as e:
+        raise ValueError("story_forum_id is not an int") from e
+
+    with open(token_file, encoding="utf-8") as f:
         token = f.read().strip()
 
     intents = discord.Intents.default()
     intents.message_content = True
     intents.members = True
 
-    client = Bot(args.story_forum_id, [], intents=intents)
+    client = Bot(story_forum_id, [], intents=intents)
 
     client.run(token, root_logger=True)
 
