@@ -15,4 +15,4 @@ test:
 
 .PHONY: clean
 clean:
-	rm -rf *~ __pycache__
+	rm -rf *~ __pycache__ writer_bot/*~ writer_bot/__pycache__
