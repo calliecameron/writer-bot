@@ -515,11 +515,11 @@ class TestStoryThread:
             nonlocal output
             output = name
 
-        async def get_message(_: Any, *args: Any) -> Any:
+        async def fetch_message(_: Any, *args: Any) -> Any:
             raise discord.NotFound(backend.FakeRequest(404, "404"), "404")
 
         with unittest.mock.patch.object(discord.Thread, "edit", edit):
-            with unittest.mock.patch.object(backend.FakeHttp, "get_message", get_message):
+            with unittest.mock.patch.object(discord.Thread, "fetch_message", fetch_message):
                 await StoryThread(t).update()
 
         assert output == ""
