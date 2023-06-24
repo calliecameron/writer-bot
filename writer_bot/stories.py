@@ -152,9 +152,13 @@ class StoryThread:
         with utils.LogContext(f"thread {self._thread.id} ({self._thread.name})"):
             _log.info("updating...")
             try:
-                m = self._thread.starter_message or await self._thread.fetch_message(
-                    self._thread.id
-                )
+                try:
+                    m = self._thread.starter_message or await self._thread.fetch_message(
+                        self._thread.id
+                    )
+                except discord.NotFound:
+                    _log.info("no starter message")
+                    return
 
                 story = await StoryFile.from_message(m)
                 if not story:

@@ -482,6 +482,49 @@ class TestStoryThread:
         assert output == ""
 
     @pytest.mark.asyncio
+    async def test_update_no_starter_message(self, bot: commands.Bot) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m = backend.make_message("foo bar", u, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u.id,
+                "name": "foo bar",
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": False,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+        await m.delete()
+
+        output = ""
+
+        async def edit(_: Any, name: str) -> None:
+            nonlocal output
+            output = name
+
+        async def get_message(_: Any, *args: Any) -> Any:
+            raise discord.NotFound(backend.FakeRequest(404, "404"), "404")
+
+        with unittest.mock.patch.object(discord.Thread, "edit", edit):
+            with unittest.mock.patch.object(backend.FakeHttp, "get_message", get_message):
+                await StoryThread(t).update()
+
+        assert output == ""
+
+    @pytest.mark.asyncio
     async def test_update(self, bot: commands.Bot) -> None:
         u = backend.make_user("user", 1)
         g = backend.make_guild("test")
