@@ -14,6 +14,8 @@ from typing import (
     TypeVar,
 )
 
+import discord
+
 if TYPE_CHECKING:
     _LoggerAdapter = logging.LoggerAdapter[logging.Logger]
 else:
@@ -85,3 +87,25 @@ def logged(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[A
                 log.info("finished")
 
     return wrapper
+
+
+async def respond(interaction: discord.Interaction, embed: discord.Embed) -> None:
+    try:
+        await interaction.response.send_message(embed=embed)
+    except discord.InteractionResponded:
+        m = await interaction.original_response()
+        await m.edit(embed=embed)
+
+
+async def success(interaction: discord.Interaction, msg: str) -> None:
+    await respond(interaction, discord.Embed(colour=discord.Colour.green(), description=msg))
+
+
+async def warning(interaction: discord.Interaction, msg: str) -> None:
+    await respond(interaction, discord.Embed(colour=discord.Colour.orange(), description=msg))
+
+
+async def error(interaction: discord.Interaction, msg: str) -> None:
+    await respond(
+        interaction, discord.Embed(colour=discord.Colour.red(), title="Error", description=msg)
+    )

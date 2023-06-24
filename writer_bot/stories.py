@@ -242,25 +242,17 @@ class Stories(commands.GroupCog, name="stories"):
     @utils.logged
     async def refresh(self, interaction: discord.Interaction) -> None:
         if self._processing_refresh:
-            await interaction.response.send_message(
-                embed=discord.Embed(
-                    colour=discord.Colour.orange(),
-                    description="A refresh is already running. Only one can run at a time.",
-                )
-            )
             _log.warning("refresh already running")
+            await utils.warning(
+                interaction, "A refresh is already running. Only one can run at a time."
+            )
             return
         self._processing_refresh = True
 
         try:
             await interaction.response.defer()
             await self.process_all_threads()
-            m = await interaction.original_response()
-            await m.edit(
-                embed=discord.Embed(
-                    colour=discord.Colour.green(), description="Finished refreshing stories."
-                )
-            )
+            await utils.success(interaction, "Finished refreshing stories.")
         finally:
             self._processing_refresh = False
 
@@ -270,9 +262,7 @@ class Stories(commands.GroupCog, name="stories"):
         self, interaction: discord.Interaction, e: app_commands.AppCommandError
     ) -> None:
         _log.error(str(e))
-        await interaction.response.send_message(
-            embed=discord.Embed(colour=discord.Colour.red(), title="Error", description=str(e))
-        )
+        await utils.error(interaction, str(e))
 
     @tasks.loop(time=[datetime.time(hour=0)])
     @utils.logged
