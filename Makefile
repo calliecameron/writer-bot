@@ -11,7 +11,7 @@ lint:
 
 .PHONY: test
 test:
-	pytest tests
+	pytest --cov-report=term-missing --cov=writer_bot tests
 
 .PHONY: clean
 clean:
