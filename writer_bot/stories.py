@@ -1,6 +1,7 @@
 import datetime
 import io
 import re
+import urllib.parse
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -77,7 +78,7 @@ class StoryFile(ABC):
         return round(wordcount, -3)
 
     @staticmethod
-    async def from_message(m: discord.Message) -> "Optional[StoryFile]":
+    async def from_message(m: discord.Message, google_api_key: str) -> "Optional[StoryFile]":
         for a in m.attachments:
             at = Attachment.from_attachment(m, a)
             if at:
@@ -86,6 +87,10 @@ class StoryFile(ABC):
         for url in urlextract.URLExtract().find_urls(
             m.content, only_unique=True, with_schema_only=True
         ):
+            d = await GoogleDoc.from_url(m, url, google_api_key)
+            if d:
+                return d
+
             l = await Link.from_url(m, url)
             if l:
                 return l
@@ -103,7 +108,9 @@ class Link(StoryFile):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(self._url) as response:
-                    return await response.read()
+                    data = await response.read()
+                    response.raise_for_status()
+                    return data
         except (aiohttp.ClientError, OSError) as e:
             raise discord.DiscordException(str(e)) from e
 
@@ -151,10 +158,49 @@ class Attachment(StoryFile):
         return None
 
 
+class GoogleDoc(StoryFile):
+    def __init__(self, message: discord.Message, doc_id: str, google_api_key: str) -> None:
+        super().__init__(message, "google doc", doc_id, "text/plain", None)
+        self._google_api_key = google_api_key
+
+    async def _download(self) -> bytes:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    "https://www.googleapis.com/drive/v3/files/%s/export?mimeType=text/plain&key=%s"
+                    % (self._url, self._google_api_key)
+                ) as response:
+                    data = await response.read()
+                    response.raise_for_status()
+                    return data
+        except (aiohttp.ClientError, OSError) as e:
+            raise discord.DiscordException(str(e)) from e
+
+    @staticmethod
+    async def from_url(m: discord.Message, url: str, google_api_key: str) -> "Optional[GoogleDoc]":
+        u = urllib.parse.urlparse(url)
+        parts = [part for part in u.path.split("/") if part]
+        if (
+            u.scheme != "https"
+            or u.hostname != "docs.google.com"
+            or len(parts) < 3
+            or parts[0] != "document"
+            or parts[1] != "d"
+        ):
+            return None
+        d = GoogleDoc(m, parts[2], google_api_key)
+        if d.can_wordcount():
+            _log.info("can wordcount %s", d.description)
+            return d
+        _log.info("can't wordcount %s", d.description)
+        return None
+
+
 class StoryThread:
-    def __init__(self, thread: discord.Thread) -> None:
+    def __init__(self, thread: discord.Thread, google_api_key: str) -> None:
         super().__init__()
         self._thread = thread
+        self._google_api_key = google_api_key
 
     async def update(self) -> None:
         with utils.LogContext(f"thread {self._thread.id} ({self._thread.name})"):
@@ -175,7 +221,7 @@ class StoryThread:
     async def _find_wordcount_file(self) -> Optional[StoryFile]:
         async for m in self._thread.history(oldest_first=True):
             if m.author.id == self._thread.owner_id:
-                story = await StoryFile.from_message(m)
+                story = await StoryFile.from_message(m, self._google_api_key)
                 if story:
                     return story
         return None
@@ -209,10 +255,11 @@ class StoryThread:
 
 @app_commands.guild_only()
 class Stories(commands.GroupCog, name="stories"):
-    def __init__(self, bot: commands.Bot, story_forum_id: int) -> None:
+    def __init__(self, bot: commands.Bot, story_forum_id: int, google_api_key: str) -> None:
         super().__init__()
         self._bot = bot
         self._story_forum_id = story_forum_id
+        self._google_api_key = google_api_key
         self._story_forum: discord.ForumChannel = None  # type: ignore
         self._processing_threads: set[int] = set()
         self._processing_refresh = False
@@ -310,6 +357,6 @@ class Stories(commands.GroupCog, name="stories"):
             return
         self._processing_threads.add(thread.id)
         try:
-            await StoryThread(thread).update()
+            await StoryThread(thread, self._google_api_key).update()
         finally:
             self._processing_threads.remove(thread.id)

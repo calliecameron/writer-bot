@@ -10,7 +10,7 @@ from discord.ext import commands
 from discord.ext.test import backend, factories
 from pyfakefs import fake_filesystem  # pylint: disable=no-name-in-module
 
-from writer_bot.stories import Attachment, Link, StoryFile, StoryThread
+from writer_bot.stories import Attachment, GoogleDoc, Link, StoryFile, StoryThread
 
 # pylint: disable=protected-access,unused-argument,redefined-outer-name
 
@@ -91,7 +91,7 @@ class TestStoryFile:
         c = backend.make_text_channel("channel", g)
         m = backend.make_message("foo bar", u, c)
 
-        assert await StoryFile.from_message(m) is None
+        assert await StoryFile.from_message(m, "1234") is None
 
     @pytest.mark.asyncio
     async def test_from_message_none_valid(self, bot: commands.Bot) -> None:
@@ -154,7 +154,7 @@ class TestStoryFile:
                 headers={"content-type": "image/jpeg", "content-length": "10"},
             )
 
-            assert await StoryFile.from_message(m) is None
+            assert await StoryFile.from_message(m, "1234") is None
 
     @pytest.mark.asyncio
     async def test_from_message_attachment(self, bot: commands.Bot) -> None:
@@ -218,7 +218,7 @@ class TestStoryFile:
                 headers={"content-type": "text/plain", "content-length": "10"},
             )
 
-            s = await StoryFile.from_message(m)
+            s = await StoryFile.from_message(m, "1234")
             assert s is not None
             assert (
                 s.description
@@ -286,12 +286,79 @@ class TestStoryFile:
                 headers={"content-type": "text/plain", "content-length": "10"},
             )
 
-            s = await StoryFile.from_message(m)
+            s = await StoryFile.from_message(m, "1234")
             assert s is not None
             assert (
                 s.description
                 == f"message {m.id} link http://example.com/test2.txt (text/plain, 10 bytes)"
             )
+
+    @pytest.mark.asyncio
+    async def test_from_message_google_doc(self, bot: commands.Bot) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m = backend.make_message(
+            "foo http://example.com/test1.jpg bar http://example.com/test2.txt baz "
+            "https://docs.google.com/document/d/abcd "
+            "http://example.com/test3.txt quux "
+            "https://docs.google.com/document/d/efgh/edit",
+            u,
+            c,
+            attachments=[
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(  # type: ignore
+                        filename="test4.jpg",
+                        size=12,
+                        url="http://example.com/test4.jpg",
+                        proxy_url="http://example.com/test4.jpg",
+                        content_type="image/jpeg",
+                    ),
+                ),
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(  # type: ignore
+                        filename="test5.txt",
+                        size=12,
+                        url="http://example.com/test5.jpg",
+                        proxy_url="http://example.com/test5.jpg",
+                        content_type="image/jpeg",
+                    ),
+                ),
+                discord.Attachment(
+                    state=backend.get_state(),
+                    data=factories.make_attachment_dict(  # type: ignore
+                        filename="test6.jpg",
+                        size=12,
+                        url="http://example.com/test6.jpg",
+                        proxy_url="http://example.com/test6.jpg",
+                        content_type="image/jpeg",
+                    ),
+                ),
+            ],
+        )
+
+        with aioresponses() as mock:
+            mock.head(
+                "http://example.com/test1.jpg",
+                status=200,
+                headers={"content-type": "image/jpeg", "content-length": "10"},
+            )
+            mock.head(
+                "http://example.com/test2.txt",
+                status=200,
+                headers={"content-type": "image/jpeg", "content-length": "10"},
+            )
+            mock.head(
+                "http://example.com/test3.txt",
+                status=200,
+                headers={"content-type": "image/jpeg", "content-length": "10"},
+            )
+
+            s = await StoryFile.from_message(m, "1234")
+            assert s is not None
+            assert s.description == f"message {m.id} google doc abcd (text/plain, unknown bytes)"
 
 
 class TestLink:
@@ -393,6 +460,42 @@ class TestAttachment:
         assert a is None
 
 
+class TestGoogleDoc:
+    @pytest.mark.asyncio
+    async def test_download(self) -> None:
+        with aioresponses() as m:
+            m.get(
+                "https://www.googleapis.com/drive/v3/files/abcd/export"
+                "?mimeType=text/plain&key=1234",
+                status=200,
+                body="foo bar baz",
+            )
+            l = GoogleDoc(cast(discord.Message, FakeMessage()), "abcd", "1234")
+            data = await l._download()
+            assert data.decode(encoding="utf-8").strip() == "foo bar baz"
+
+    @pytest.mark.asyncio
+    async def test_from_url(self) -> None:
+        d = await GoogleDoc.from_url(
+            cast(discord.Message, FakeMessage()), "https://docs.google.com/document/d/abcd", "1234"
+        )
+        assert d is not None
+        assert d.description == "message 1234 google doc abcd (text/plain, unknown bytes)"
+
+        d = await GoogleDoc.from_url(
+            cast(discord.Message, FakeMessage()),
+            "https://docs.google.com/document/d/abcd/edit?foo=bar",
+            "1234",
+        )
+        assert d is not None
+        assert d.description == "message 1234 google doc abcd (text/plain, unknown bytes)"
+
+        d = await GoogleDoc.from_url(
+            cast(discord.Message, FakeMessage()), "http://example.com/test.txt", "1234"
+        )
+        assert d is None
+
+
 class TestStoryThread:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -430,7 +533,7 @@ class TestStoryThread:
                 },
             },
         )
-        assert StoryThread(t)._parse_name() == (expected_name, expected_wordcount)
+        assert StoryThread(t, "1234")._parse_name() == (expected_name, expected_wordcount)
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -471,7 +574,7 @@ class TestStoryThread:
             },
         )
         with unittest.mock.patch.object(discord.Thread, "edit") as mock:
-            await StoryThread(t)._set_wordcount(wordcount)
+            await StoryThread(t, "1234")._set_wordcount(wordcount)
         mock.assert_has_calls([unittest.mock.call(name=expected)] if called else [])
 
     @pytest.mark.asyncio
@@ -509,7 +612,7 @@ class TestStoryThread:
                 yield m
 
         with unittest.mock.patch.object(discord.Thread, "history", history):
-            f = await StoryThread(t)._find_wordcount_file()
+            f = await StoryThread(t, "1234")._find_wordcount_file()
 
         assert f is None
 
@@ -559,7 +662,7 @@ class TestStoryThread:
                     status=200,
                     headers={"content-type": "text/plain", "content-length": "12"},
                 )
-                f = await StoryThread(t)._find_wordcount_file()
+                f = await StoryThread(t, "1234")._find_wordcount_file()
 
         assert f is not None
         assert (
@@ -613,7 +716,7 @@ class TestStoryThread:
                     status=200,
                     headers={"content-type": "text/plain", "content-length": "12"},
                 )
-                f = await StoryThread(t)._find_wordcount_file()
+                f = await StoryThread(t, "1234")._find_wordcount_file()
 
         assert f is not None
         assert (
@@ -663,7 +766,7 @@ class TestStoryThread:
 
         with unittest.mock.patch.object(discord.Thread, "edit", edit):
             with unittest.mock.patch.object(discord.Thread, "history", history):
-                await StoryThread(t).update()
+                await StoryThread(t, "1234").update()
 
         assert output == ""
 
@@ -716,7 +819,7 @@ class TestStoryThread:
                         headers={"content-type": "text/plain", "content-length": "10"},
                     )
                     mock.get("http://example.com/test.txt", status=200, body="foo bar baz")
-                    await StoryThread(t).update()
+                    await StoryThread(t, "1234").update()
 
         assert output == "foo bar [100 words]"
 
@@ -769,7 +872,7 @@ class TestStoryThread:
                         headers={"content-type": "text/plain", "content-length": "10"},
                     )
                     mock.get("http://example.com/test3.txt", status=200, body="foo bar baz")
-                    await StoryThread(t).update()
+                    await StoryThread(t, "1234").update()
 
         assert output == "foo bar [100 words]"
 
@@ -823,6 +926,6 @@ class TestStoryThread:
                         headers={"content-type": "text/plain", "content-length": "10"},
                     )
                     mock.get("http://example.com/test3.txt", status=200, body="foo bar baz")
-                    await StoryThread(t).update()
+                    await StoryThread(t, "1234").update()
 
         assert output == "foo bar [100 words]"
