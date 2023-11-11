@@ -1,12 +1,17 @@
 import asyncio
 import io
 import logging
+import unittest.mock
+from typing import Any, AsyncIterator, cast
 
+import discord
 import pytest
+from discord.ext import commands
+from discord.ext.test import backend
 
 from writer_bot import utils
 
-# pylint: disable=protected-access
+# pylint: disable=protected-access,unused-argument
 
 
 def test_log_context() -> None:
@@ -84,3 +89,111 @@ test_logged.<locals>.test1: foo
 test_logged.<locals>.test1: finished
 """
     )
+
+
+@pytest.mark.asyncio
+async def test_all_forum_threads(bot: commands.Bot) -> None:
+    u = backend.make_user("user", 1)
+    g = backend.make_guild("test")
+    c = backend.make_text_channel("channel", g)
+    m1 = backend.make_message("foo bar", u, c)
+    t1 = discord.Thread(
+        guild=g,
+        state=backend.get_state(),
+        data={
+            "id": m1.id,
+            "guild_id": g.id,
+            "parent_id": c.id,
+            "owner_id": u.id,
+            "name": "T1",
+            "type": 11,
+            "message_count": 1,
+            "member_count": 1,
+            "rate_limit_per_user": 1,
+            "thread_metadata": {
+                "archived": False,
+                "auto_archive_duration": 60,
+                "archive_timestamp": "2023-12-12",
+            },
+        },
+    )
+    m2 = backend.make_message("foo bar", u, c)
+    t2 = discord.Thread(
+        guild=g,
+        state=backend.get_state(),
+        data={
+            "id": m2.id,
+            "guild_id": g.id,
+            "parent_id": c.id,
+            "owner_id": u.id,
+            "name": "T1",
+            "type": 11,
+            "message_count": 1,
+            "member_count": 1,
+            "rate_limit_per_user": 1,
+            "thread_metadata": {
+                "archived": False,
+                "auto_archive_duration": 60,
+                "archive_timestamp": "2023-12-12",
+            },
+        },
+    )
+    m3 = backend.make_message("foo bar", u, c)
+    t3 = discord.Thread(
+        guild=g,
+        state=backend.get_state(),
+        data={
+            "id": m3.id,
+            "guild_id": g.id,
+            "parent_id": c.id,
+            "owner_id": u.id,
+            "name": "T1",
+            "type": 11,
+            "message_count": 1,
+            "member_count": 1,
+            "rate_limit_per_user": 1,
+            "thread_metadata": {
+                "archived": True,
+                "auto_archive_duration": 60,
+                "archive_timestamp": "2023-12-12",
+            },
+        },
+    )
+    m4 = backend.make_message("foo bar", u, c)
+    t4 = discord.Thread(
+        guild=g,
+        state=backend.get_state(),
+        data={
+            "id": m4.id,
+            "guild_id": g.id,
+            "parent_id": c.id,
+            "owner_id": u.id,
+            "name": "T1",
+            "type": 11,
+            "message_count": 1,
+            "member_count": 1,
+            "rate_limit_per_user": 1,
+            "thread_metadata": {
+                "archived": True,
+                "auto_archive_duration": 60,
+                "archive_timestamp": "2023-12-12",
+            },
+        },
+    )
+
+    @property  # type: ignore
+    def threads(_: Any) -> list[discord.Thread]:
+        return [t1, t2]
+
+    async def archived_threads(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Thread]:
+        for t in (t3, t4):
+            yield t
+
+    with unittest.mock.patch.object(discord.TextChannel, "threads", threads):
+        with unittest.mock.patch.object(discord.TextChannel, "archived_threads", archived_threads):
+            assert [t.id for t in await utils.all_forum_threads(cast(discord.ForumChannel, c))] == [
+                m1.id,
+                m2.id,
+                m3.id,
+                m4.id,
+            ]

@@ -203,7 +203,7 @@ class StoryThread:
         self._google_api_key = google_api_key
 
     async def update(self) -> None:
-        with utils.LogContext(f"thread {self._thread.id} ({self._thread.name})"):
+        with utils.LogContext(f"story thread {self._thread.id} ({self._thread.name})"):
             _log.info("updating...")
             try:
                 story = await self._find_wordcount_file()
@@ -253,35 +253,130 @@ class StoryThread:
         return title, wordcount
 
 
+class Profile:
+    def __init__(
+        self,
+        user: discord.User,
+        profile_forum: discord.ForumChannel,
+        story_forum: discord.ForumChannel,
+        bot_user: discord.ClientUser,
+    ) -> None:
+        super().__init__()
+        self._user = user
+        self._profile_forum = profile_forum
+        self._story_forum = story_forum
+        self._bot_user = bot_user
+
+    async def update(self) -> None:
+        with utils.LogContext(f"profile thread {self._user.id} ({self._user.display_name})"):
+            try:
+                thread = await self._find_profile()
+                if not thread:
+                    _log.info("user has no profile")
+                    return
+
+                message = await self._find_message(thread)
+                content = await self._generate_content()
+
+                if message:
+                    if content != message.content:
+                        await message.edit(content=content)
+                        _log.info("updated content in existing message")
+                    else:
+                        _log.info("content in existing message is correct")
+                else:
+                    await thread.send(content)
+                    _log.info("added content to new message")
+            except discord.DiscordException as e:
+                _log.error("update failed: %s", e)
+                raise
+            finally:
+                _log.info("finished")
+
+    async def _find_profile(self) -> Optional[discord.Thread]:
+        out = None
+        for thread in await utils.all_forum_threads(self._profile_forum):
+            if thread.owner_id == self._user.id:
+                if not out or thread.created_at < out.created_at:
+                    out = thread
+        return out
+
+    async def _find_message(self, thread: discord.Thread) -> Optional[discord.Message]:
+        async for message in thread.history(limit=None, oldest_first=True):
+            if message.author.id == self._bot_user.id:
+                return message
+        return None
+
+    async def _generate_content(self) -> str:
+        stories = []
+        for thread in await utils.all_forum_threads(self._story_forum):
+            if thread.owner_id == self._user.id:
+                stories.append(thread)
+
+        def created_at(t: discord.Thread) -> datetime.datetime:
+            return t.created_at or datetime.datetime(2000, 1, 1)
+
+        stories.sort(key=created_at, reverse=True)
+
+        if not stories:
+            return "Stories by this author: none yet."
+
+        out = ["Stories by this author:", ""]
+        for story in stories:
+            out.append("* " + story.mention)
+
+        return "\n".join(out)
+
+
 @app_commands.guild_only()
 class Stories(commands.GroupCog, name="stories"):
-    def __init__(self, bot: commands.Bot, story_forum_id: int, google_api_key: str) -> None:
+    def __init__(
+        self, bot: commands.Bot, story_forum_id: int, profile_forum_id: int, google_api_key: str
+    ) -> None:
         super().__init__()
         self._bot = bot
+        self._bot_user: discord.ClientUser = None  # type: ignore
         self._story_forum_id = story_forum_id
+        self._profile_forum_id = profile_forum_id
         self._google_api_key = google_api_key
         self._story_forum: discord.ForumChannel = None  # type: ignore
-        self._processing_threads: set[int] = set()
+        self._profile_forum: discord.ForumChannel = None  # type: ignore
+        self._processing_stories: set[int] = set()
+        self._processing_profiles: set[int] = set()
         self._processing_refresh = False
         self.refresh_cron.start()  # pylint: disable=no-member
 
     async def cog_load(self) -> None:
+        bot_user = self._bot.user
+        if not bot_user:
+            raise discord.DiscordException("bot is not logged in")
+        self._bot_user = bot_user
+
         story_forum = await self._bot.fetch_channel(self._story_forum_id)
         if not isinstance(story_forum, discord.ForumChannel):
             raise discord.DiscordException("story_forum_id must be a forum channel")
         self._story_forum = story_forum
 
+        profile_forum = await self._bot.fetch_channel(self._profile_forum_id)
+        if not isinstance(profile_forum, discord.ForumChannel):
+            raise discord.DiscordException("profile_forum_id must be a forum channel")
+        self._profile_forum = profile_forum
+
     @commands.Cog.listener()
     @utils.logged
     async def on_thread_create(self, thread: discord.Thread) -> None:
         if thread.parent_id == self._story_forum.id:
-            await self.process_thread(thread)
+            await self.process_story(thread)
+        elif thread.parent_id == self._profile_forum.id:
+            await self.process_profile(thread.owner_id)
 
     @commands.Cog.listener()
     @utils.logged
     async def on_thread_update(self, _: discord.Thread, after: discord.Thread) -> None:
         if after.parent_id == self._story_forum.id:
-            await self.process_thread(after)
+            await self.process_story(after)
+        elif after.parent_id == self._profile_forum.id:
+            await self.process_profile(after.owner_id)
 
     @commands.Cog.listener()
     @utils.logged
@@ -291,7 +386,7 @@ class Stories(commands.GroupCog, name="stories"):
             and message.channel.parent_id == self._story_forum_id
             and message.author.id == message.channel.owner_id
         ):
-            await self.process_thread(message.channel)
+            await self.process_story(message.channel)
 
     @commands.Cog.listener()
     @utils.logged
@@ -302,7 +397,7 @@ class Stories(commands.GroupCog, name="stories"):
         if isinstance(channel, discord.Thread) and channel.parent_id == self._story_forum.id:
             m = payload.cached_message or await channel.fetch_message(payload.message_id)
             if m.author.id == channel.owner_id:
-                await self.process_thread(channel)
+                await self.process_story(channel)
 
     @app_commands.command(description="Refresh the wordcount for all stories.")
     @app_commands.checks.has_permissions(manage_threads=True)
@@ -318,7 +413,7 @@ class Stories(commands.GroupCog, name="stories"):
 
         try:
             await interaction.response.defer()
-            await self.process_all_threads()
+            await self.process_all_stories()
             await utils.success(interaction, "Finished refreshing stories.")
         finally:
             self._processing_refresh = False
@@ -340,7 +435,7 @@ class Stories(commands.GroupCog, name="stories"):
         self._processing_refresh = True
 
         try:
-            await self.process_all_threads()
+            await self.process_all_stories()
         finally:
             self._processing_refresh = False
 
@@ -348,15 +443,26 @@ class Stories(commands.GroupCog, name="stories"):
     async def before_refresh_cron(self) -> None:
         await self._bot.wait_until_ready()
 
-    async def process_all_threads(self) -> None:
-        for thread in self._story_forum.threads:
-            await self.process_thread(thread)
+    async def process_all_stories(self) -> None:
+        for thread in await utils.all_forum_threads(self._story_forum):
+            await self.process_story(thread)
 
-    async def process_thread(self, thread: discord.Thread) -> None:
-        if thread.id in self._processing_threads:
+    async def process_story(self, thread: discord.Thread) -> None:
+        if thread.id in self._processing_stories:
             return
-        self._processing_threads.add(thread.id)
+        self._processing_stories.add(thread.id)
         try:
             await StoryThread(thread, self._google_api_key).update()
+            await self.process_profile(thread.owner_id)
         finally:
-            self._processing_threads.remove(thread.id)
+            self._processing_stories.remove(thread.id)
+
+    async def process_profile(self, user_id: int) -> None:
+        if user_id in self._processing_profiles:
+            return
+        self._processing_profiles.add(user_id)
+        try:
+            user = self._bot.get_user(user_id) or await self._bot.fetch_user(user_id)
+            await Profile(user, self._profile_forum, self._story_forum, self._bot_user).update()
+        finally:
+            self._processing_profiles.remove(user_id)

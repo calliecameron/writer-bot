@@ -2,17 +2,9 @@ import contextvars
 import functools
 import inspect
 import logging
+from collections.abc import MutableMapping
 from types import TracebackType
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Coroutine,
-    MutableMapping,
-    Optional,
-    ParamSpec,
-    TypeVar,
-)
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, ParamSpec, TypeVar
 
 import discord
 
@@ -109,3 +101,10 @@ async def error(interaction: discord.Interaction[discord.Client], msg: str) -> N
     await respond(
         interaction, discord.Embed(colour=discord.Colour.red(), title="Error", description=msg)
     )
+
+
+async def all_forum_threads(forum: discord.ForumChannel) -> list[discord.Thread]:
+    out = forum.threads
+    async for thread in forum.archived_threads(limit=None):
+        out.append(thread)
+    return out

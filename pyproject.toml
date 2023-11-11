@@ -12,7 +12,7 @@ mypy_path = "stubs"
 ignore-patterns = ".*.pyi"
 
 [tool.pylint.'MESSAGES CONTROL']
-disable = "invalid-name,missing-docstring,too-few-public-methods,too-many-public-methods,too-many-locals,too-many-lines,too-many-arguments,too-many-statements,too-many-branches,consider-using-f-string"
+disable = "invalid-name,missing-docstring,too-few-public-methods,too-many-public-methods,too-many-locals,too-many-lines,too-many-arguments,too-many-statements,too-many-branches,too-many-instance-attributes,consider-using-f-string,duplicate-code"
 enable = "unused-argument"
 
 [tool.pylint.VARIABLES]
