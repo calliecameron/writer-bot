@@ -304,10 +304,10 @@ class Stories(commands.GroupCog, name="stories"):
             if m.author.id == channel.owner_id:
                 await self.process_thread(channel)
 
-    @app_commands.command(description="Refresh the wordcount for all stories.")  # type: ignore
+    @app_commands.command(description="Refresh the wordcount for all stories.")
     @app_commands.checks.has_permissions(manage_threads=True)
     @utils.logged
-    async def refresh(self, interaction: discord.Interaction) -> None:
+    async def refresh(self, interaction: discord.Interaction[discord.Client]) -> None:
         if self._processing_refresh:
             _log.warning("refresh already running")
             await utils.warning(
@@ -326,7 +326,7 @@ class Stories(commands.GroupCog, name="stories"):
     @refresh.error
     @utils.logged
     async def refresh_error(
-        self, interaction: discord.Interaction, e: app_commands.AppCommandError
+        self, interaction: discord.Interaction[discord.Client], e: app_commands.AppCommandError
     ) -> None:
         _log.error(str(e))
         await utils.error(interaction, str(e))

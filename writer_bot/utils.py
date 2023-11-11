@@ -89,7 +89,7 @@ def logged(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[A
     return wrapper
 
 
-async def respond(interaction: discord.Interaction, embed: discord.Embed) -> None:
+async def respond(interaction: discord.Interaction[discord.Client], embed: discord.Embed) -> None:
     try:
         await interaction.response.send_message(embed=embed)
     except discord.InteractionResponded:
@@ -97,15 +97,15 @@ async def respond(interaction: discord.Interaction, embed: discord.Embed) -> Non
         await m.edit(embed=embed)
 
 
-async def success(interaction: discord.Interaction, msg: str) -> None:
+async def success(interaction: discord.Interaction[discord.Client], msg: str) -> None:
     await respond(interaction, discord.Embed(colour=discord.Colour.green(), description=msg))
 
 
-async def warning(interaction: discord.Interaction, msg: str) -> None:
+async def warning(interaction: discord.Interaction[discord.Client], msg: str) -> None:
     await respond(interaction, discord.Embed(colour=discord.Colour.orange(), description=msg))
 
 
-async def error(interaction: discord.Interaction, msg: str) -> None:
+async def error(interaction: discord.Interaction[discord.Client], msg: str) -> None:
     await respond(
         interaction, discord.Embed(colour=discord.Colour.red(), title="Error", description=msg)
     )
