@@ -1222,9 +1222,9 @@ class TestProfile:
             m
             == f"""Stories by this author:
 
-* <#{m1.id}>
-* <#{m3.id}>
-* <#{m2.id}>"""
+* [foo bar](https://discord.com/channels/{g.id}/{m1.id})
+* [blah yay](https://discord.com/channels/{g.id}/{m3.id})
+* [baz quux](https://discord.com/channels/{g.id}/{m2.id})"""
         )
 
     @pytest.mark.asyncio
@@ -1424,7 +1424,7 @@ class TestProfile:
             and sent
             == f"""Stories by this author:
 
-* <#{sm1.id}>"""
+* [story 1](https://discord.com/channels/{g.id}/{sm1.id})"""
         )
 
     @pytest.mark.asyncio
@@ -1501,7 +1501,7 @@ class TestProfile:
                 },
                 "content": f"""Stories by this author:
 
-* <#{sm1.id}>""",
+* [story 1](https://discord.com/channels/{g.id}/{sm1.id})""",
                 "timestamp": "2023-12-12",
                 "edited_timestamp": "2023-12-12",
                 "tts": False,
@@ -1679,6 +1679,6 @@ class TestProfile:
             edited
             == f"""Stories by this author:
 
-* <#{sm1.id}>"""
+* [story 1](https://discord.com/channels/{g.id}/{sm1.id})"""
             and sent == ""
         )

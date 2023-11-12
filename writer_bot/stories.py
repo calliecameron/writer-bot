@@ -323,7 +323,7 @@ class Profile:
 
         out = ["Stories by this author:", ""]
         for story in stories:
-            out.append("* " + story.mention)
+            out.append(f"* [{story.name}]({story.jump_url})")
 
         return "\n".join(out)
 
