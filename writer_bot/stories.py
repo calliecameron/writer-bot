@@ -3,7 +3,6 @@ import io
 import re
 import urllib.parse
 from abc import ABC, abstractmethod
-from typing import Optional
 
 import aiohttp
 import discord
@@ -23,7 +22,12 @@ _log = utils.Logger()
 
 class StoryFile(ABC):
     def __init__(
-        self, message: discord.Message, kind: str, url: str, content_type: str, size: Optional[int]
+        self,
+        message: discord.Message,
+        kind: str,
+        url: str,
+        content_type: str,
+        size: int | None,
     ) -> None:
         super().__init__()
         self._message_id = message.id
@@ -71,27 +75,29 @@ class StoryFile(ABC):
 
     @staticmethod
     def _rounded_wordcount(wordcount: int) -> int:
-        if wordcount < 100:
+        if wordcount < 100:  # noqa: PLR2004
             return 100
-        if wordcount < 1000:
+        if wordcount < 1000:  # noqa: PLR2004
             return round(wordcount, -2)
         return round(wordcount, -3)
 
     @staticmethod
-    async def from_message(m: discord.Message, google_api_key: str) -> "Optional[StoryFile]":
+    async def from_message(m: discord.Message, google_api_key: str) -> "StoryFile | None":
         for a in m.attachments:
             at = Attachment.from_attachment(m, a)
             if at:
                 return at
 
         for url in urlextract.URLExtract().find_urls(
-            m.content, only_unique=True, with_schema_only=True
+            m.content,
+            only_unique=True,
+            with_schema_only=True,
         ):
             d = await GoogleDoc.from_url(m, url, google_api_key)
             if d:
                 return d
 
-            l = await Link.from_url(m, url)
+            l = await Link.from_url(m, url)  # noqa: E741
             if l:
                 return l
 
@@ -100,26 +106,28 @@ class StoryFile(ABC):
 
 class Link(StoryFile):
     def __init__(
-        self, message: discord.Message, url: str, content_type: str, size: Optional[int]
+        self,
+        message: discord.Message,
+        url: str,
+        content_type: str,
+        size: int | None,
     ) -> None:
         super().__init__(message, "link", url, content_type, size)
 
     async def _download(self) -> bytes:
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(self._url) as response:
-                    data = await response.read()
-                    response.raise_for_status()
-                    return data
+            async with aiohttp.ClientSession() as session, session.get(self._url) as response:
+                data = await response.read()
+                response.raise_for_status()
+                return data
         except (aiohttp.ClientError, OSError) as e:
             raise discord.DiscordException(str(e)) from e
 
     @staticmethod
-    async def from_url(m: discord.Message, url: str) -> "Optional[Link]":
+    async def from_url(m: discord.Message, url: str) -> "Link | None":
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.head(url) as response:
-                    l = Link(m, url, response.content_type, response.content_length)
+            async with aiohttp.ClientSession() as session, session.head(url) as response:
+                l = Link(m, url, response.content_type, response.content_length)  # noqa: E741
         except aiohttp.ClientError as e:
             raise discord.DiscordException(str(e)) from e
         if l.can_wordcount():
@@ -148,8 +156,9 @@ class Attachment(StoryFile):
 
     @staticmethod
     def from_attachment(
-        m: discord.Message, attachment: discord.Attachment
-    ) -> "Optional[Attachment]":
+        m: discord.Message,
+        attachment: discord.Attachment,
+    ) -> "Attachment | None":
         a = Attachment(m, attachment)
         if a.can_wordcount():
             _log.info("can wordcount %s", a.description)
@@ -165,25 +174,26 @@ class GoogleDoc(StoryFile):
 
     async def _download(self) -> bytes:
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    "https://www.googleapis.com/drive/v3/files/%s/export?mimeType=text/plain&key=%s"
-                    % (self._url, self._google_api_key)
-                ) as response:
-                    data = await response.read()
-                    response.raise_for_status()
-                    return data
+            async with (
+                aiohttp.ClientSession() as session,
+                session.get(
+                    f"https://www.googleapis.com/drive/v3/files/{self._url}/export?mimeType=text/plain&key={self._google_api_key}",
+                ) as response,
+            ):
+                data = await response.read()
+                response.raise_for_status()
+                return data
         except (aiohttp.ClientError, OSError) as e:
             raise discord.DiscordException(str(e)) from e
 
     @staticmethod
-    async def from_url(m: discord.Message, url: str, google_api_key: str) -> "Optional[GoogleDoc]":
+    async def from_url(m: discord.Message, url: str, google_api_key: str) -> "GoogleDoc | None":
         u = urllib.parse.urlparse(url)
         parts = [part for part in u.path.split("/") if part]
         if (
             u.scheme != "https"
             or u.hostname != "docs.google.com"
-            or len(parts) < 3
+            or len(parts) < 3  # noqa: PLR2004
             or parts[0] != "document"
             or parts[1] != "d"
         ):
@@ -218,7 +228,7 @@ class StoryThread:
             finally:
                 _log.info("finished")
 
-    async def _find_wordcount_file(self) -> Optional[StoryFile]:
+    async def _find_wordcount_file(self) -> StoryFile | None:
         async for m in self._thread.history(oldest_first=True):
             if m.author.id == self._thread.owner_id:
                 story = await StoryFile.from_message(m, self._google_api_key)
@@ -293,37 +303,39 @@ class Profile:
             finally:
                 _log.info("finished")
 
-    async def _find_profile(self) -> Optional[discord.Thread]:
+    async def _find_profile(self) -> discord.Thread | None:
         out = None
         for thread in await utils.all_forum_threads(self._profile_forum):
-            if thread.owner_id == self._user.id:
-                if not out or thread.created_at < out.created_at:
-                    out = thread
+            if (thread.owner_id == self._user.id) and (
+                not out or thread.created_at < out.created_at
+            ):
+                out = thread
         return out
 
-    async def _find_message(self, thread: discord.Thread) -> Optional[discord.Message]:
+    async def _find_message(self, thread: discord.Thread) -> discord.Message | None:
         async for message in thread.history(limit=None, oldest_first=True):
             if message.author.id == self._bot_user.id:
                 return message
         return None
 
     async def _generate_content(self) -> str:
-        stories = []
-        for thread in await utils.all_forum_threads(self._story_forum):
-            if thread.owner_id == self._user.id:
-                stories.append(thread)
+        stories = [
+            thread
+            for thread in await utils.all_forum_threads(self._story_forum)
+            if thread.owner_id == self._user.id
+        ]
 
         def created_at(t: discord.Thread) -> datetime.datetime:
-            return t.created_at or datetime.datetime(2000, 1, 1)
+            return t.created_at or datetime.datetime(2000, 1, 1)  # noqa: DTZ001
 
         stories.sort(key=created_at, reverse=True)
 
         if not stories:
             return "Stories by this author: none yet."
 
-        out = ["Stories by this author:", ""]
-        for story in stories:
-            out.append(f"* [{story.name}]({story.jump_url})")
+        out = ["Stories by this author:", ""] + [
+            f"* [{story.name}]({story.jump_url})" for story in stories
+        ]
 
         return "\n".join(out)
 
@@ -331,20 +343,24 @@ class Profile:
 @app_commands.guild_only()
 class Stories(commands.GroupCog, name="stories"):
     def __init__(
-        self, bot: commands.Bot, story_forum_id: int, profile_forum_id: int, google_api_key: str
+        self,
+        bot: commands.Bot,
+        story_forum_id: int,
+        profile_forum_id: int,
+        google_api_key: str,
     ) -> None:
         super().__init__()
         self._bot = bot
-        self._bot_user: discord.ClientUser = None  # type: ignore
+        self._bot_user: discord.ClientUser = None  # type: ignore[assignment]
         self._story_forum_id = story_forum_id
         self._profile_forum_id = profile_forum_id
         self._google_api_key = google_api_key
-        self._story_forum: discord.ForumChannel = None  # type: ignore
-        self._profile_forum: discord.ForumChannel = None  # type: ignore
+        self._story_forum: discord.ForumChannel = None  # type: ignore[assignment]
+        self._profile_forum: discord.ForumChannel = None  # type: ignore[assignment]
         self._processing_stories: set[int] = set()
         self._processing_profiles: set[int] = set()
         self._processing_refresh = False
-        self.refresh_cron.start()  # pylint: disable=no-member
+        self.refresh_cron.start()
 
     async def cog_load(self) -> None:
         bot_user = self._bot.user
@@ -392,7 +408,7 @@ class Stories(commands.GroupCog, name="stories"):
     @utils.logged
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
         channel = self._bot.get_channel(payload.channel_id) or await self._bot.fetch_channel(
-            payload.channel_id
+            payload.channel_id,
         )
         if isinstance(channel, discord.Thread) and channel.parent_id == self._story_forum.id:
             m = payload.cached_message or await channel.fetch_message(payload.message_id)
@@ -406,7 +422,8 @@ class Stories(commands.GroupCog, name="stories"):
         if self._processing_refresh:
             _log.warning("refresh already running")
             await utils.warning(
-                interaction, "A refresh is already running. Only one can run at a time."
+                interaction,
+                "A refresh is already running. Only one can run at a time.",
             )
             return
         self._processing_refresh = True
@@ -421,7 +438,9 @@ class Stories(commands.GroupCog, name="stories"):
     @refresh.error
     @utils.logged
     async def refresh_error(
-        self, interaction: discord.Interaction[discord.Client], e: app_commands.AppCommandError
+        self,
+        interaction: discord.Interaction[discord.Client],
+        e: app_commands.AppCommandError,
     ) -> None:
         _log.error(str(e))
         await utils.error(interaction, str(e))

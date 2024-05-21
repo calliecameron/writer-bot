@@ -2,7 +2,8 @@ import asyncio
 import io
 import logging
 import unittest.mock
-from typing import Any, AsyncIterator, cast
+from collections.abc import AsyncIterator
+from typing import Any, cast
 
 import discord
 import pytest
@@ -10,8 +11,6 @@ from discord.ext import commands
 from discord.ext.test import backend
 
 from writer_bot import utils
-
-# pylint: disable=protected-access,unused-argument
 
 
 def test_log_context() -> None:
@@ -23,7 +22,7 @@ def test_log_context() -> None:
     log = logging.getLogger(name)
     log.setLevel(logging.DEBUG)
     log.addHandler(handler)
-    logger = utils._Logger(name)
+    logger = utils._Logger(name)  # noqa: SLF001
 
     # The context is task-local, so interleaved log entries from different tasks should have their
     # own context.
@@ -92,7 +91,7 @@ test_logged.<locals>.test1: finished
 
 
 @pytest.mark.asyncio
-async def test_all_forum_threads(bot: commands.Bot) -> None:
+async def test_all_forum_threads(bot: commands.Bot) -> None:  # noqa: ARG001
     u = backend.make_user("user", 1)
     g = backend.make_guild("test")
     c = backend.make_text_channel("channel", g)
@@ -181,19 +180,25 @@ async def test_all_forum_threads(bot: commands.Bot) -> None:
         },
     )
 
-    @property  # type: ignore
-    def threads(_: Any) -> list[discord.Thread]:
+    @property  # type: ignore[misc]
+    def threads(_: Any) -> list[discord.Thread]:  # noqa: ANN401
         return [t1, t2]
 
-    async def archived_threads(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Thread]:
+    async def archived_threads(
+        _: Any,  # noqa: ANN401
+        *args: Any,  # noqa: ANN401, ARG001
+        **kwargs: Any,  # noqa: ANN401, ARG001
+    ) -> AsyncIterator[discord.Thread]:
         for t in (t3, t4):
             yield t
 
-    with unittest.mock.patch.object(discord.TextChannel, "threads", threads):
-        with unittest.mock.patch.object(discord.TextChannel, "archived_threads", archived_threads):
-            assert [t.id for t in await utils.all_forum_threads(cast(discord.ForumChannel, c))] == [
-                m1.id,
-                m2.id,
-                m3.id,
-                m4.id,
-            ]
+    with (
+        unittest.mock.patch.object(discord.TextChannel, "threads", threads),
+        unittest.mock.patch.object(discord.TextChannel, "archived_threads", archived_threads),
+    ):
+        assert [t.id for t in await utils.all_forum_threads(cast(discord.ForumChannel, c))] == [
+            m1.id,
+            m2.id,
+            m3.id,
+            m4.id,
+        ]

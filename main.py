@@ -18,8 +18,8 @@ class Bot(commands.Bot):
         story_forum_id: int,
         profile_forum_id: int,
         google_api_key: str,
-        *args: Any,
-        **kwargs: Any
+        *args: Any,  # noqa: ANN401
+        **kwargs: Any,  # noqa: ANN401
     ) -> None:
         super().__init__(*args, **kwargs)
         self._story_forum_id = story_forum_id
@@ -29,8 +29,11 @@ class Bot(commands.Bot):
     async def on_ready(self) -> None:
         await self.add_cog(
             writer_bot.stories.Stories(
-                self, self._story_forum_id, self._profile_forum_id, self._google_api_key
-            )
+                self,
+                self._story_forum_id,
+                self._profile_forum_id,
+                self._google_api_key,
+            ),
         )
         await self.tree.sync()
         _log.info("Connected as user: %s", self.user)
@@ -39,7 +42,7 @@ class Bot(commands.Bot):
 def get_token(var: str) -> str:
     file = os.getenv(var)
     if not file:
-        raise ValueError("%s environment variable not set" % var)
+        raise ValueError(f"{var} environment variable not set")
 
     with open(file, encoding="utf-8") as f:
         return f.read().strip()
@@ -48,11 +51,11 @@ def get_token(var: str) -> str:
 def get_forum_id(name: str) -> int:
     raw = os.getenv(name)
     if not raw:
-        raise ValueError("%s environment variable not set" % name)
+        raise ValueError(f"{name} environment variable not set")
     try:
         return int(raw)
     except ValueError as e:
-        raise ValueError("%s is not an int" % name) from e
+        raise ValueError(f"{name} is not an int" % name) from e
 
 
 def main() -> None:

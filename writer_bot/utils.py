@@ -2,9 +2,9 @@ import contextvars
 import functools
 import inspect
 import logging
-from collections.abc import MutableMapping
+from collections.abc import Callable, Coroutine, MutableMapping
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
 import discord
 
@@ -23,23 +23,20 @@ class LogContext:
     def __init__(self, context: str) -> None:
         super().__init__()
         self._context = context
-        self._old_value: Optional[contextvars.Token[str]] = None
+        self._old_value: contextvars.Token[str] | None = None
 
     def __enter__(self) -> "LogContext":
         if not self._old_value:
             value = _log_context.get()
-            if value:
-                value = value + ": " + self._context
-            else:
-                value = self._context
+            value = value + ": " + self._context if value else self._context
             self._old_value = _log_context.set(value)
         return self
 
     def __exit__(
         self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         if self._old_value:
             _log_context.reset(self._old_value)
@@ -51,7 +48,9 @@ class _Logger(_LoggerAdapter):
         super().__init__(logging.getLogger(name))
 
     def process(
-        self, msg: Any, kwargs: MutableMapping[str, Any]
+        self,
+        msg: Any,  # noqa: ANN401
+        kwargs: MutableMapping[str, Any],
     ) -> tuple[Any, MutableMapping[str, Any]]:
         value = _log_context.get()
         if value:
@@ -99,7 +98,8 @@ async def warning(interaction: discord.Interaction[discord.Client], msg: str) ->
 
 async def error(interaction: discord.Interaction[discord.Client], msg: str) -> None:
     await respond(
-        interaction, discord.Embed(colour=discord.Colour.red(), title="Error", description=msg)
+        interaction,
+        discord.Embed(colour=discord.Colour.red(), title="Error", description=msg),
     )
 
 
