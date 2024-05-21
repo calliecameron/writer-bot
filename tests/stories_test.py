@@ -550,7 +550,7 @@ class TestStoryThread:
             ("foo bar [10 words]", 0, "foo bar", True),
         ],
     )
-    async def test_set_wordcount(
+    async def test_set_wordcount_not_archived(
         self,
         bot: commands.Bot,
         name: str,
@@ -585,6 +585,61 @@ class TestStoryThread:
         with unittest.mock.patch.object(discord.Thread, "edit") as mock:
             await StoryThread(t, "1234")._set_wordcount(wordcount)
         mock.assert_has_calls([unittest.mock.call(name=expected)] if called else [])
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "name,wordcount,expected,called",
+        [
+            ("foo bar", 0, "foo bar", False),
+            ("foo bar", 10, "foo bar [10 words]", True),
+            ("foo bar [10 words]", 10, "foo bar [10 words]", False),
+            ("foo bar [10 words]", 100, "foo bar [100 words]", True),
+            ("foo bar [10 words]", 0, "foo bar", True),
+        ],
+    )
+    async def test_set_wordcount_archived(
+        self,
+        bot: commands.Bot,
+        name: str,
+        wordcount: int,
+        expected: str,
+        called: bool,
+    ) -> None:
+        u = backend.make_user("user", 1)
+        g = backend.make_guild("test")
+        c = backend.make_text_channel("channel", g)
+        m = backend.make_message("foo bar", u, c)
+        t = discord.Thread(
+            guild=g,
+            state=backend.get_state(),
+            data={
+                "id": m.id,
+                "guild_id": g.id,
+                "parent_id": c.id,
+                "owner_id": u.id,
+                "name": name,
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": True,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                },
+            },
+        )
+        with unittest.mock.patch.object(discord.Thread, "edit") as mock:
+            await StoryThread(t, "1234")._set_wordcount(wordcount)
+        mock.assert_has_calls(
+            [
+                unittest.mock.call(archived=False),
+                unittest.mock.call(name=expected),
+                unittest.mock.call(archived=True),
+            ]
+            if called
+            else [],
+        )
 
     @pytest.mark.asyncio
     async def test_find_wordcount_file_none(self, bot: commands.Bot) -> None:

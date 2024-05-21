@@ -243,7 +243,8 @@ class StoryThread:
             return
         if wordcount > 0:
             title = f"{title} [{wordcount} words]"
-        await self._thread.edit(name=title)
+        async with utils.unarchive_thread(self._thread):
+            await self._thread.edit(name=title)
         _log.info(f"wordcount in title set to {wordcount}")
 
     def _parse_name(self) -> tuple[str, int]:
