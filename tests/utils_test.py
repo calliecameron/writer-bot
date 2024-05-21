@@ -202,3 +202,87 @@ async def test_all_forum_threads(bot: commands.Bot) -> None:  # noqa: ARG001
             m3.id,
             m4.id,
         ]
+
+
+@pytest.mark.asyncio
+async def test_unarchive_thread_not_archived(bot: commands.Bot) -> None:  # noqa: ARG001
+    u = backend.make_user("user", 1)
+    g = backend.make_guild("test")
+    c = backend.make_text_channel("channel", g)
+    m1 = backend.make_message("foo bar", u, c)
+    t1 = discord.Thread(
+        guild=g,
+        state=backend.get_state(),
+        data={
+            "id": m1.id,
+            "guild_id": g.id,
+            "parent_id": c.id,
+            "owner_id": u.id,
+            "name": "T1",
+            "type": 11,
+            "message_count": 1,
+            "member_count": 1,
+            "rate_limit_per_user": 1,
+            "thread_metadata": {
+                "archived": False,
+                "auto_archive_duration": 60,
+                "archive_timestamp": "2023-12-12",
+            },
+        },
+    )
+
+    async def _thread_edit(
+        thread: discord.Thread,
+        archived: bool,
+        *args: Any,  # noqa: ANN401, ARG001
+    ) -> discord.Thread:
+        thread.archived = archived
+        return thread
+
+    with unittest.mock.patch.object(discord.Thread, "edit", _thread_edit):
+        async with utils.unarchive_thread(t1):
+            assert not t1.archived
+
+        assert not t1.archived
+
+
+@pytest.mark.asyncio
+async def test_unarchive_thread_archived(bot: commands.Bot) -> None:  # noqa: ARG001
+    u = backend.make_user("user", 1)
+    g = backend.make_guild("test")
+    c = backend.make_text_channel("channel", g)
+    m1 = backend.make_message("foo bar", u, c)
+    t1 = discord.Thread(
+        guild=g,
+        state=backend.get_state(),
+        data={
+            "id": m1.id,
+            "guild_id": g.id,
+            "parent_id": c.id,
+            "owner_id": u.id,
+            "name": "T1",
+            "type": 11,
+            "message_count": 1,
+            "member_count": 1,
+            "rate_limit_per_user": 1,
+            "thread_metadata": {
+                "archived": True,
+                "auto_archive_duration": 60,
+                "archive_timestamp": "2023-12-12",
+            },
+        },
+    )
+
+    async def _thread_edit(
+        thread: discord.Thread,
+        archived: bool,
+        *args: Any,  # noqa: ANN401, ARG001
+    ) -> discord.Thread:
+        thread.archived = archived
+        return thread
+
+    with unittest.mock.patch.object(discord.Thread, "edit", _thread_edit):
+        async with utils.unarchive_thread(t1):
+            assert not t1.archived
+
+        assert t1.archived

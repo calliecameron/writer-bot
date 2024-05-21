@@ -290,7 +290,8 @@ class Profile:
 
                 if message:
                     if content != message.content:
-                        await message.edit(content=content)
+                        async with utils.unarchive_thread(thread):
+                            await message.edit(content=content)
                         _log.info("updated content in existing message")
                     else:
                         _log.info("content in existing message is correct")

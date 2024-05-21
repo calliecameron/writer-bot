@@ -2,7 +2,8 @@ import contextvars
 import functools
 import inspect
 import logging
-from collections.abc import Callable, Coroutine, MutableMapping
+from collections.abc import AsyncIterator, Callable, Coroutine, MutableMapping
+from contextlib import asynccontextmanager
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
 
@@ -108,3 +109,15 @@ async def all_forum_threads(forum: discord.ForumChannel) -> list[discord.Thread]
     async for thread in forum.archived_threads(limit=None):
         out.append(thread)
     return out
+
+
+@asynccontextmanager
+async def unarchive_thread(thread: discord.Thread) -> AsyncIterator[None]:
+    archived = thread.archived
+    if archived:
+        await thread.edit(archived=False)
+    try:
+        yield
+    finally:
+        if archived:
+            await thread.edit(archived=True)

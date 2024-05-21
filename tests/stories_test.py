@@ -1,5 +1,5 @@
 import unittest.mock
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from typing import Any, cast
 
 import discord
@@ -949,779 +949,546 @@ class TestStoryThread:
 class TestProfile:
     @pytest.mark.asyncio
     async def test_find_profile_existing(self, bot: commands.Bot) -> None:
-        u1 = backend.make_user("user1", 1)
-        u2 = backend.make_user("user2", 1)
-        g = backend.make_guild("test")
-        c = backend.make_text_channel("channel", g)
-        m1 = backend.make_message("foo bar", u1, c)
-        m2 = backend.make_message("baz quux", u2, c)
-        m3 = backend.make_message("blah yay", u1, c)
-        t1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m1.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u1.id,
-                "name": "foo bar",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
+
+        t1, m1 = self.make_thread(
+            story_user,
+            profile_forum,
+            guild,
+            "foo bar",
+            archived=False,
         )
-        t2 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m2.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u2.id,
-                "name": "foo bar",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-10",
-                },
-            },
+        t2, _ = self.make_thread(
+            bot_user,
+            profile_forum,
+            guild,
+            "baz quux",
+            archived=False,
         )
-        t3 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m3.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u1.id,
-                "name": "foo bar",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-11",
-                },
-            },
+        t3, _ = self.make_thread(
+            story_user,
+            profile_forum,
+            guild,
+            "blah yay",
+            archived=False,
         )
 
-        async def all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
+        async def _all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
             return [t1, t2, t3]
 
-        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", all_forum_threads):
+        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", _all_forum_threads):
             t = await Profile(
-                u1,
-                cast(discord.ForumChannel, c),
-                cast(discord.ForumChannel, c),
-                cast(discord.ClientUser, u2),
+                story_user,
+                profile_forum,
+                story_forum,
+                bot_user,
             )._find_profile()
 
-        assert t and t.id == m3.id
+        assert t and t.id == m1.id
 
     @pytest.mark.asyncio
     async def test_find_profile_none(self, bot: commands.Bot) -> None:
-        u1 = backend.make_user("user1", 1)
-        u2 = backend.make_user("user2", 1)
-        g = backend.make_guild("test")
-        c = backend.make_text_channel("channel", g)
-        m1 = backend.make_message("foo bar", u2, c)
-        t1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m1.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u2.id,
-                "name": "foo bar",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
+
+        t1, _ = self.make_thread(
+            bot_user,
+            profile_forum,
+            guild,
+            "foo bar",
+            archived=False,
         )
 
-        async def all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
+        async def _all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
             return [t1]
 
-        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", all_forum_threads):
+        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", _all_forum_threads):
             t = await Profile(
-                u1,
-                cast(discord.ForumChannel, c),
-                cast(discord.ForumChannel, c),
-                cast(discord.ClientUser, u2),
+                story_user,
+                profile_forum,
+                story_forum,
+                bot_user,
             )._find_profile()
 
         assert t is None
 
     @pytest.mark.asyncio
     async def test_find_message_existing(self, bot: commands.Bot) -> None:
-        u1 = backend.make_user("user1", 1)
-        u2 = backend.make_user("user2", 1)
-        g = backend.make_guild("test")
-        c = backend.make_text_channel("channel", g)
-        m1 = backend.make_message("foo bar", u1, c)
-        m2 = backend.make_message("baz quux", u2, c)
-        m3 = backend.make_message("blah yay", u2, c)
-        t = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m1.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u1.id,
-                "name": "foo bar",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                },
-            },
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
+
+        t, m1 = self.make_thread(
+            story_user,
+            profile_forum,
+            guild,
+            "foo bar",
+            archived=False,
         )
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+        m2 = backend.make_message("baz quux", bot_user, profile_forum)
+        m3 = backend.make_message("blah yay", bot_user, profile_forum)
+
+        async def _thread_history(
+            _: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> AsyncIterator[discord.Message]:
             for m in (m1, m2, m3):
                 yield m
 
-        with unittest.mock.patch.object(discord.Thread, "history", history):
+        with unittest.mock.patch.object(discord.Thread, "history", _thread_history):
             m = await Profile(
-                u1,
-                cast(discord.ForumChannel, c),
-                cast(discord.ForumChannel, c),
-                cast(discord.ClientUser, u2),
+                story_user,
+                profile_forum,
+                story_forum,
+                bot_user,
             )._find_message(t)
 
         assert m and m.id == m2.id
 
     @pytest.mark.asyncio
     async def test_find_message_none(self, bot: commands.Bot) -> None:
-        u1 = backend.make_user("user1", 1)
-        u2 = backend.make_user("user2", 1)
-        g = backend.make_guild("test")
-        c = backend.make_text_channel("channel", g)
-        m1 = backend.make_message("foo bar", u1, c)
-        t = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m1.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u1.id,
-                "name": "foo bar",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                },
-            },
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
+
+        t, m1 = self.make_thread(
+            story_user,
+            profile_forum,
+            guild,
+            "foo bar",
+            archived=False,
         )
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+        async def _thread_history(
+            _: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> AsyncIterator[discord.Message]:
             for m in (m1,):
                 yield m
 
-        with unittest.mock.patch.object(discord.Thread, "history", history):
+        with unittest.mock.patch.object(discord.Thread, "history", _thread_history):
             m = await Profile(
-                u1,
-                cast(discord.ForumChannel, c),
-                cast(discord.ForumChannel, c),
-                cast(discord.ClientUser, u2),
+                story_user,
+                profile_forum,
+                story_forum,
+                bot_user,
             )._find_message(t)
 
         assert m is None
 
     @pytest.mark.asyncio
     async def test_generate_content_existing(self, bot: commands.Bot) -> None:
-        u1 = backend.make_user("user1", 1)
-        u2 = backend.make_user("user2", 1)
-        g = backend.make_guild("test")
-        c = backend.make_text_channel("channel", g)
-        m1 = backend.make_message("foo bar", u1, c)
-        m2 = backend.make_message("baz quux", u1, c)
-        m3 = backend.make_message("blah yay", u1, c)
-        t1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m1.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u1.id,
-                "name": "foo bar",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
+
+        t1, m1 = self.make_thread(
+            story_user,
+            story_forum,
+            guild,
+            "foo bar",
+            archived=False,
         )
-        t2 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m2.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u1.id,
-                "name": "baz quux",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-10",
-                },
-            },
+        t2, m2 = self.make_thread(
+            story_user,
+            story_forum,
+            guild,
+            "blah yay",
+            archived=False,
         )
-        t3 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m3.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u1.id,
-                "name": "blah yay",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-11",
-                },
-            },
+        t3, m3 = self.make_thread(
+            story_user,
+            story_forum,
+            guild,
+            "baz quux",
+            archived=False,
         )
 
-        async def all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
+        async def _all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
             return [t1, t2, t3]
 
-        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", all_forum_threads):
+        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", _all_forum_threads):
             m = await Profile(
-                u1,
-                cast(discord.ForumChannel, c),
-                cast(discord.ForumChannel, c),
-                cast(discord.ClientUser, u2),
+                story_user,
+                profile_forum,
+                story_forum,
+                bot_user,
             )._generate_content()
 
         assert (
             m
             == f"""Stories by this author:
 
-* [foo bar](https://discord.com/channels/{g.id}/{m1.id})
-* [blah yay](https://discord.com/channels/{g.id}/{m3.id})
-* [baz quux](https://discord.com/channels/{g.id}/{m2.id})"""
+* [foo bar](https://discord.com/channels/{guild.id}/{m1.id})
+* [blah yay](https://discord.com/channels/{guild.id}/{m2.id})
+* [baz quux](https://discord.com/channels/{guild.id}/{m3.id})"""
         )
 
     @pytest.mark.asyncio
     async def test_generate_content_none(self, bot: commands.Bot) -> None:
-        u1 = backend.make_user("user1", 1)
-        u2 = backend.make_user("user2", 1)
-        g = backend.make_guild("test")
-        c = backend.make_text_channel("channel", g)
-        m1 = backend.make_message("foo bar", u2, c)
-        t1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": m1.id,
-                "guild_id": g.id,
-                "parent_id": c.id,
-                "owner_id": u2.id,
-                "name": "foo bar",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
+
+        thread, _ = self.make_thread(
+            bot_user,
+            story_forum,
+            guild,
+            "foo bar",
+            archived=False,
         )
 
-        async def all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
-            return [t1]
+        async def _all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
+            return [thread]
 
-        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", all_forum_threads):
+        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", _all_forum_threads):
             m = await Profile(
-                u1,
-                cast(discord.ForumChannel, c),
-                cast(discord.ForumChannel, c),
-                cast(discord.ClientUser, u2),
+                story_user,
+                profile_forum,
+                story_forum,
+                bot_user,
             )._generate_content()
 
         assert m == "Stories by this author: none yet."
 
     @pytest.mark.asyncio
     async def test_update_no_profile(self, bot: commands.Bot) -> None:
-        u1 = backend.make_user("user1", 1)
-        u2 = backend.make_user("user2", 1)
-        g = backend.make_guild("test")
-        sc = backend.make_text_channel("stories", g)
-        pc = backend.make_text_channel("profiles", g)
-        sm1 = backend.make_message("story 1", u1, sc)
-        st1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": sm1.id,
-                "guild_id": g.id,
-                "parent_id": sc.id,
-                "owner_id": u1.id,
-                "name": "story 1",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
+
+        story_thread, _ = self.make_thread(
+            story_user,
+            story_forum,
+            guild,
+            "story 1",
+            archived=False,
         )
 
-        async def all_forum_threads(forum: discord.ForumChannel) -> list[discord.Thread]:
-            if forum.id == sc.id:
-                return [st1]
-            if forum.id == pc.id:
-                return []
-            raise ValueError("unknown forum")
-
-        edited = ""
-
-        async def edit(_: Any, content: str) -> None:
-            nonlocal edited
-            edited = content
-
-        sent = ""
-
-        async def send(_: Any, content: str) -> None:
-            nonlocal sent
-            sent = content
-
-        with (
-            unittest.mock.patch.object(discord.Message, "edit", edit),
-            unittest.mock.patch.object(discord.Thread, "send", send),
-            unittest.mock.patch.object(
-                writer_bot.utils,
-                "all_forum_threads",
-                all_forum_threads,
-            ),
-        ):
-            await Profile(
-                u1,
-                cast(discord.ForumChannel, pc),
-                cast(discord.ForumChannel, sc),
-                cast(discord.ClientUser, u2),
-            ).update()
+        edited, sent = await self.run_update(
+            story_user,
+            bot_user,
+            story_forum,
+            profile_forum,
+            story_thread,
+            None,
+            [],
+        )
 
         assert edited == "" and sent == ""
 
     @pytest.mark.asyncio
     async def test_update_new_message(self, bot: commands.Bot) -> None:
-        u1 = backend.make_user("user1", 1)
-        u2 = backend.make_user("user2", 1)
-        g = backend.make_guild("test")
-        sc = backend.make_text_channel("stories", g)
-        pc = backend.make_text_channel("profiles", g)
-        sm1 = backend.make_message("story 1", u1, sc)
-        st1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": sm1.id,
-                "guild_id": g.id,
-                "parent_id": sc.id,
-                "owner_id": u1.id,
-                "name": "story 1",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
-        )
-        pm1 = backend.make_message("profile 1", u1, pc)
-        pt1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": pm1.id,
-                "guild_id": g.id,
-                "parent_id": pc.id,
-                "owner_id": u1.id,
-                "name": "profile 1",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
+
+        story_thread, story_message_1 = self.make_thread(
+            story_user,
+            story_forum,
+            guild,
+            "story 1",
+            archived=False,
         )
 
-        async def all_forum_threads(forum: discord.ForumChannel) -> list[discord.Thread]:
-            if forum.id == sc.id:
-                return [st1]
-            if forum.id == pc.id:
-                return [pt1]
-            raise ValueError("unknown forum")
+        profile_thread, profile_message_1 = self.make_thread(
+            story_user,
+            profile_forum,
+            guild,
+            "profile 1",
+            archived=False,
+        )
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
-            yield pm1
-
-        edited = ""
-
-        async def edit(_: Any, content: str) -> None:
-            nonlocal edited
-            edited = content
-
-        sent = ""
-
-        async def send(_: Any, content: str) -> None:
-            nonlocal sent
-            sent = content
-
-        with (
-            unittest.mock.patch.object(discord.Message, "edit", edit),
-            unittest.mock.patch.object(discord.Thread, "send", send),
-            unittest.mock.patch.object(discord.Thread, "history", history),
-            unittest.mock.patch.object(
-                writer_bot.utils,
-                "all_forum_threads",
-                all_forum_threads,
-            ),
-        ):
-            await Profile(
-                u1,
-                cast(discord.ForumChannel, pc),
-                cast(discord.ForumChannel, sc),
-                cast(discord.ClientUser, u2),
-            ).update()
+        edited, sent = await self.run_update(
+            story_user,
+            bot_user,
+            story_forum,
+            profile_forum,
+            story_thread,
+            profile_thread,
+            [profile_message_1],
+        )
 
         assert (
             edited == ""
             and sent
             == f"""Stories by this author:
 
-* [story 1](https://discord.com/channels/{g.id}/{sm1.id})"""
+* [story 1](https://discord.com/channels/{guild.id}/{story_message_1.id})"""
         )
 
     @pytest.mark.asyncio
     async def test_update_existing_message_same(self, bot: commands.Bot) -> None:
-        u1 = backend.make_user("user1", 1)
-        u2 = backend.make_user("user2", 1)
-        g = backend.make_guild("test")
-        sc = backend.make_text_channel("stories", g)
-        pc = backend.make_text_channel("profiles", g)
-        sm1 = backend.make_message("story 1", u1, sc)
-        st1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": sm1.id,
-                "guild_id": g.id,
-                "parent_id": sc.id,
-                "owner_id": u1.id,
-                "name": "story 1",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
-        )
-        pm1 = backend.make_message("profile 1", u1, sc)
-        pt1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": pm1.id,
-                "guild_id": g.id,
-                "parent_id": pc.id,
-                "owner_id": u1.id,
-                "name": "profile 1",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
-        )
-        pm2 = discord.Message(
-            channel=st1,
-            state=backend.get_state(),
-            data={
-                "id": factories.make_id(),
-                "channel_id": pt1.id,
-                "author": {
-                    "id": u2.id,
-                    "username": u2.name,
-                    "discriminator": u2.discriminator,
-                    "bot": u2.bot,
-                    "system": u2.system,
-                    "mfa_enabled": False,
-                    "locale": "en-GB",
-                    "verified": False,
-                    "flags": 0,
-                    "premium_type": 0,
-                    "public_flags": 0,
-                    "avatar": None,
-                    "global_name": None,
-                },
-                "content": f"""Stories by this author:
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
 
-* [story 1](https://discord.com/channels/{g.id}/{sm1.id})""",
-                "timestamp": "2023-12-12",
-                "edited_timestamp": "2023-12-12",
-                "tts": False,
-                "mention_everyone": False,
-                "mentions": [],
-                "mention_roles": [],
-                "attachments": [],
-                "embeds": [],
-                "pinned": False,
-                "type": 0,
-            },
+        story_thread, story_message_1 = self.make_thread(
+            story_user,
+            story_forum,
+            guild,
+            "story 1",
+            archived=False,
         )
 
-        async def all_forum_threads(forum: discord.ForumChannel) -> list[discord.Thread]:
-            if forum.id == sc.id:
-                return [st1]
-            if forum.id == pc.id:
-                return [pt1]
-            raise ValueError("unknown forum")
+        profile_thread, profile_message_1 = self.make_thread(
+            story_user,
+            profile_forum,
+            guild,
+            "profile 1",
+            archived=False,
+        )
+        profile_message_2 = self.add_thread_message(
+            bot_user,
+            profile_thread,
+            f"""Stories by this author:
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
-            for m in (pm1, pm2):
-                yield m
+* [story 1](https://discord.com/channels/{guild.id}/{story_message_1.id})""",
+        )
 
-        edited = ""
-
-        async def edit(_: Any, content: str) -> None:
-            nonlocal edited
-            edited = content
-
-        sent = ""
-
-        async def send(_: Any, content: str) -> None:
-            nonlocal sent
-            sent = content
-
-        with (
-            unittest.mock.patch.object(discord.Message, "edit", edit),
-            unittest.mock.patch.object(discord.Thread, "send", send),
-            unittest.mock.patch.object(discord.Thread, "history", history),
-            unittest.mock.patch.object(
-                writer_bot.utils,
-                "all_forum_threads",
-                all_forum_threads,
-            ),
-        ):
-            await Profile(
-                u1,
-                cast(discord.ForumChannel, pc),
-                cast(discord.ForumChannel, sc),
-                cast(discord.ClientUser, u2),
-            ).update()
+        edited, sent = await self.run_update(
+            story_user,
+            bot_user,
+            story_forum,
+            profile_forum,
+            story_thread,
+            profile_thread,
+            [profile_message_1, profile_message_2],
+        )
 
         assert edited == "" and sent == ""
 
     @pytest.mark.asyncio
-    async def test_update_existing_message_different(self, bot: commands.Bot) -> None:
-        u1 = backend.make_user("user1", 1)
-        u2 = backend.make_user("user2", 1)
-        g = backend.make_guild("test")
-        sc = backend.make_text_channel("stories", g)
-        pc = backend.make_text_channel("profiles", g)
-        sm1 = backend.make_message("story 1", u1, sc)
-        st1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": sm1.id,
-                "guild_id": g.id,
-                "parent_id": sc.id,
-                "owner_id": u1.id,
-                "name": "story 1",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
-        )
-        pm1 = backend.make_message("profile 1", u1, sc)
-        pt1 = discord.Thread(
-            guild=g,
-            state=backend.get_state(),
-            data={
-                "id": pm1.id,
-                "guild_id": g.id,
-                "parent_id": pc.id,
-                "owner_id": u1.id,
-                "name": "profile 1",
-                "type": 11,
-                "message_count": 1,
-                "member_count": 1,
-                "rate_limit_per_user": 1,
-                "thread_metadata": {
-                    "archived": False,
-                    "auto_archive_duration": 60,
-                    "archive_timestamp": "2023-12-12",
-                    "create_timestamp": "2023-12-12",
-                },
-            },
-        )
-        pm2 = discord.Message(
-            channel=st1,
-            state=backend.get_state(),
-            data={
-                "id": factories.make_id(),
-                "channel_id": pt1.id,
-                "author": {
-                    "id": u2.id,
-                    "username": u2.name,
-                    "discriminator": u2.discriminator,
-                    "bot": u2.bot,
-                    "system": u2.system,
-                    "mfa_enabled": False,
-                    "locale": "en-GB",
-                    "verified": False,
-                    "flags": 0,
-                    "premium_type": 0,
-                    "public_flags": 0,
-                    "avatar": None,
-                    "global_name": None,
-                },
-                "content": "foo",
-                "timestamp": "2023-12-12",
-                "edited_timestamp": "2023-12-12",
-                "tts": False,
-                "mention_everyone": False,
-                "mentions": [],
-                "mention_roles": [],
-                "attachments": [],
-                "embeds": [],
-                "pinned": False,
-                "type": 0,
-            },
+    async def test_update_existing_message_different_not_archived(self, bot: commands.Bot) -> None:
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
+
+        story_thread, story_message_1 = self.make_thread(
+            story_user,
+            story_forum,
+            guild,
+            "story 1",
+            archived=False,
         )
 
-        async def all_forum_threads(forum: discord.ForumChannel) -> list[discord.Thread]:
-            if forum.id == sc.id:
-                return [st1]
-            if forum.id == pc.id:
-                return [pt1]
-            raise ValueError("unknown forum")
+        profile_thread, profile_message_1 = self.make_thread(
+            story_user,
+            profile_forum,
+            guild,
+            "profile 1",
+            archived=False,
+        )
+        profile_message_2 = self.add_thread_message(
+            bot_user,
+            profile_thread,
+            "foo",
+        )
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
-            for m in (pm1, pm2):
-                yield m
-
-        edited = ""
-
-        async def edit(_: Any, content: str) -> None:
-            nonlocal edited
-            edited = content
-
-        sent = ""
-
-        async def send(_: Any, content: str) -> None:
-            nonlocal sent
-            sent = content
-
-        with (
-            unittest.mock.patch.object(discord.Message, "edit", edit),
-            unittest.mock.patch.object(discord.Thread, "send", send),
-            unittest.mock.patch.object(discord.Thread, "history", history),
-            unittest.mock.patch.object(
-                writer_bot.utils,
-                "all_forum_threads",
-                all_forum_threads,
-            ),
-        ):
-            await Profile(
-                u1,
-                cast(discord.ForumChannel, pc),
-                cast(discord.ForumChannel, sc),
-                cast(discord.ClientUser, u2),
-            ).update()
+        edited, sent = await self.run_update(
+            story_user,
+            bot_user,
+            story_forum,
+            profile_forum,
+            story_thread,
+            profile_thread,
+            [profile_message_1, profile_message_2],
+        )
 
         assert (
             edited
             == f"""Stories by this author:
 
-* [story 1](https://discord.com/channels/{g.id}/{sm1.id})"""
+* [story 1](https://discord.com/channels/{guild.id}/{story_message_1.id})"""
             and sent == ""
+            and not profile_thread.archived
         )
+
+    @pytest.mark.asyncio
+    async def test_update_existing_message_different_archived(self, bot: commands.Bot) -> None:
+        story_user, bot_user, guild, story_forum, profile_forum = self.setup()
+
+        story_thread, story_message_1 = self.make_thread(
+            story_user,
+            story_forum,
+            guild,
+            "story 1",
+            archived=False,
+        )
+
+        profile_thread, profile_message_1 = self.make_thread(
+            story_user,
+            profile_forum,
+            guild,
+            "profile 1",
+            archived=True,
+        )
+        profile_message_2 = self.add_thread_message(
+            bot_user,
+            profile_thread,
+            "foo",
+        )
+
+        edited, sent = await self.run_update(
+            story_user,
+            bot_user,
+            story_forum,
+            profile_forum,
+            story_thread,
+            profile_thread,
+            [profile_message_1, profile_message_2],
+        )
+
+        assert (
+            edited
+            == f"""Stories by this author:
+
+* [story 1](https://discord.com/channels/{guild.id}/{story_message_1.id})"""
+            and sent == ""
+            and profile_thread.archived
+        )
+
+    def setup(
+        self,
+    ) -> tuple[
+        discord.User,
+        discord.ClientUser,
+        discord.Guild,
+        discord.ForumChannel,
+        discord.ForumChannel,
+    ]:
+        story_user = backend.make_user("user1", 1)
+        bot_user = cast(discord.ClientUser, backend.make_user("user2", 1))
+        guild = backend.make_guild("test")
+        story_forum = cast(discord.ForumChannel, backend.make_text_channel("stories", guild))
+        profile_forum = cast(discord.ForumChannel, backend.make_text_channel("profiles", guild))
+        return story_user, bot_user, guild, story_forum, profile_forum
+
+    def make_thread(
+        self,
+        user: discord.User | discord.ClientUser,
+        forum: discord.ForumChannel,
+        guild: discord.Guild,
+        content: str,
+        *,
+        archived: bool,
+    ) -> tuple[discord.Thread, discord.Message]:
+        message = backend.make_message(content, user, forum)
+        thread = discord.Thread(
+            guild=guild,
+            state=backend.get_state(),
+            data={
+                "id": message.id,
+                "guild_id": guild.id,
+                "parent_id": forum.id,
+                "owner_id": user.id,
+                "name": content,
+                "type": 11,
+                "message_count": 1,
+                "member_count": 1,
+                "rate_limit_per_user": 1,
+                "thread_metadata": {
+                    "archived": archived,
+                    "auto_archive_duration": 60,
+                    "archive_timestamp": "2023-12-12",
+                    "create_timestamp": "2023-12-12",
+                },
+            },
+        )
+        return thread, message
+
+    def add_thread_message(
+        self,
+        user: discord.ClientUser,
+        thread: discord.Thread,
+        content: str,
+    ) -> discord.Message:
+        return discord.Message(
+            channel=thread,
+            state=backend.get_state(),
+            data={
+                "id": factories.make_id(),
+                "channel_id": thread.id,
+                "author": {
+                    "id": user.id,
+                    "username": user.name,
+                    "discriminator": user.discriminator,
+                    "bot": user.bot,
+                    "system": user.system,
+                    "mfa_enabled": False,
+                    "locale": "en-GB",
+                    "verified": False,
+                    "flags": 0,
+                    "premium_type": 0,
+                    "public_flags": 0,
+                    "avatar": None,
+                    "global_name": None,
+                },
+                "content": content,
+                "timestamp": "2023-12-12",
+                "edited_timestamp": "2023-12-12",
+                "tts": False,
+                "mention_everyone": False,
+                "mentions": [],
+                "mention_roles": [],
+                "attachments": [],
+                "embeds": [],
+                "pinned": False,
+                "type": 0,
+            },
+        )
+
+    async def run_update(
+        self,
+        story_user: discord.User,
+        bot_user: discord.ClientUser,
+        story_forum: discord.ForumChannel,
+        profile_forum: discord.ForumChannel,
+        story_thread: discord.Thread,
+        profile_thread: discord.Thread | None,
+        profile_thread_messages: Iterable[discord.Message],
+    ) -> tuple[str, str]:
+        async def _all_forum_threads(forum: discord.ForumChannel) -> list[discord.Thread]:
+            if forum.id == story_forum.id:
+                return [story_thread]
+            if forum.id == profile_forum.id:
+                return [profile_thread] if profile_thread else []
+            raise ValueError("unknown forum")
+
+        async def _thread_history(
+            _: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> AsyncIterator[discord.Message]:
+            for m in profile_thread_messages:
+                yield m
+
+        async def _thread_edit(
+            thread: discord.Thread,
+            archived: bool,
+            *args: Any,
+        ) -> discord.Thread:
+            thread.archived = archived
+            return thread
+
+        sent = ""
+
+        async def _thread_send(_: Any, content: str) -> None:
+            nonlocal sent
+            sent = content
+
+        edited = ""
+
+        async def _message_edit(_: Any, content: str) -> None:
+            nonlocal edited
+            if not profile_thread:
+                raise ValueError("no profile thread given")
+            if profile_thread.archived:
+                raise ValueError("thread is archived")
+            edited = content
+
+        with (
+            unittest.mock.patch.object(discord.Thread, "history", _thread_history),
+            unittest.mock.patch.object(discord.Thread, "edit", _thread_edit),
+            unittest.mock.patch.object(discord.Thread, "send", _thread_send),
+            unittest.mock.patch.object(discord.Message, "edit", _message_edit),
+            unittest.mock.patch.object(
+                writer_bot.utils,
+                "all_forum_threads",
+                _all_forum_threads,
+            ),
+        ):
+            await Profile(
+                story_user,
+                profile_forum,
+                story_forum,
+                bot_user,
+            ).update()
+
+        return edited, sent
