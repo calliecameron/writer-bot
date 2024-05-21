@@ -1198,7 +1198,10 @@ class TestProfile:
                 bot_user,
             )._generate_content()
 
-        assert m == "Stories by this author: none yet."
+        assert m == (
+            "This author hasn't posted any stories yet. Links to the stories will appear "
+            "here if they do."
+        )
 
     @pytest.mark.asyncio
     async def test_update_no_profile(self, bot: commands.Bot) -> None:

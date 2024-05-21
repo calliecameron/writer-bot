@@ -333,7 +333,10 @@ class Profile:
         stories.sort(key=created_at, reverse=True)
 
         if not stories:
-            return "Stories by this author: none yet."
+            return (
+                "This author hasn't posted any stories yet. Links to the stories will appear "
+                "here if they do."
+            )
 
         out = ["Stories by this author:", ""] + [
             f"* [{story.name}]({story.jump_url})" for story in stories
