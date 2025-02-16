@@ -1,0 +1,4 @@
+aiohttp == 3.11.12
+discord.py == 2.4.0
+pdfminer.six == 20240706
+urlextract == 1.9.0

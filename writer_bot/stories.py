@@ -309,7 +309,7 @@ class Profile:
         out = None
         for thread in await utils.all_forum_threads(self._profile_forum):
             if (thread.owner_id == self._user.id) and (
-                not out or thread.created_at < out.created_at
+                not out or thread.created_at < out.created_at  # type: ignore[operator]
             ):
                 out = thread
         return out

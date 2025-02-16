@@ -12,6 +12,8 @@ from discord.ext.test import backend
 
 from writer_bot import utils
 
+# ruff: noqa: S101
+
 
 def test_log_context() -> None:
     output = io.StringIO()

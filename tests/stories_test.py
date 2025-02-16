@@ -12,7 +12,7 @@ from pyfakefs import fake_filesystem
 import writer_bot.utils
 from writer_bot.stories import Attachment, GoogleDoc, Link, Profile, StoryFile, StoryThread
 
-# ruff: noqa: SLF001, PLR2004, ARG001, ARG002, E741, ANN401
+# ruff: noqa: ANN401, ARG001, ARG002, E741, PLR2004, S101, SLF001
 
 
 class FakeMessage:
@@ -54,14 +54,14 @@ class TestStoryFile:
 
     @pytest.mark.asyncio
     async def test_raw_wordcount(self) -> None:
-        with open("testdata/test.txt", mode="rb") as f:  # noqa: ASYNC101
+        with open("testdata/test.txt", mode="rb") as f:  # noqa: ASYNC230
             assert await FakeStoryFile("foo", "text/plain", 10)._raw_wordcount(f.read()) == 4
 
-        with open("testdata/test.pdf", mode="rb") as f:  # noqa: ASYNC101
+        with open("testdata/test.pdf", mode="rb") as f:  # noqa: ASYNC230
             assert await FakeStoryFile("foo", "application/pdf", 10)._raw_wordcount(f.read()) == 229
 
         with (
-            open("testdata/test.txt", mode="rb") as f,  # noqa: ASYNC101
+            open("testdata/test.txt", mode="rb") as f,  # noqa: ASYNC230
             pytest.raises(discord.DiscordException),
         ):
             await FakeStoryFile("foo", "image/jpeg", 10)._raw_wordcount(f.read())
