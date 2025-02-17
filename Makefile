@@ -27,4 +27,6 @@ test: deps
 
 .PHONY: clean
 clean:
-	rm -rf *~ __pycache__ writer_bot/*~ writer_bot/__pycache__ tests/*~ tests/__pycache__
+	rm -f .coverage .deps-installed
+	find . -depth '(' -type d '(' -name '.mypy_cache' -o -name '.ruff_cache' -o -name '.pytest_cache' -o -name '__pycache__' ')' ')' -exec rm -r '{}' ';'
+	find . '(' -type f -name '*~' ')' -delete
