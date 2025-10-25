@@ -560,6 +560,7 @@ class TestStoryThread:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": False,
@@ -608,6 +609,7 @@ class TestStoryThread:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": False,
@@ -655,6 +657,7 @@ class TestStoryThread:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": True,
@@ -696,6 +699,7 @@ class TestStoryThread:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": False,
@@ -739,6 +743,7 @@ class TestStoryThread:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": False,
@@ -799,6 +804,7 @@ class TestStoryThread:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": False,
@@ -859,6 +865,7 @@ class TestStoryThread:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": False,
@@ -911,6 +918,7 @@ class TestStoryThread:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": False,
@@ -970,6 +978,7 @@ class TestStoryThread:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": False,
@@ -1029,6 +1038,7 @@ class TestStoryThread:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": False,
@@ -1530,6 +1540,7 @@ class TestProfile:
                 "type": 11,
                 "message_count": 1,
                 "member_count": 1,
+                "total_message_sent": 1,
                 "rate_limit_per_user": 1,
                 "thread_metadata": {
                     "archived": archived,

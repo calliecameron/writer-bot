@@ -3,7 +3,7 @@
 .
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.11.12
+aiohttp==3.13.1
     # via
     #   discord-py
     #   writer-bot
@@ -17,7 +17,7 @@ charset-normalizer==3.4.4
     # via pdfminer-six
 cryptography==46.0.3
     # via pdfminer-six
-discord-py==2.4.0
+discord-py==2.6.4
     # via writer-bot
 filelock==3.20.0
     # via urlextract
@@ -33,7 +33,7 @@ multidict==6.7.0
     # via
     #   aiohttp
     #   yarl
-pdfminer-six==20240706
+pdfminer-six==20250506
     # via writer-bot
 platformdirs==4.5.0
     # via urlextract

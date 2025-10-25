@@ -110,6 +110,7 @@ async def test_all_forum_threads(bot: commands.Bot) -> None:  # noqa: ARG001
             "type": 11,
             "message_count": 1,
             "member_count": 1,
+            "total_message_sent": 1,
             "rate_limit_per_user": 1,
             "thread_metadata": {
                 "archived": False,
@@ -131,6 +132,7 @@ async def test_all_forum_threads(bot: commands.Bot) -> None:  # noqa: ARG001
             "type": 11,
             "message_count": 1,
             "member_count": 1,
+            "total_message_sent": 1,
             "rate_limit_per_user": 1,
             "thread_metadata": {
                 "archived": False,
@@ -152,6 +154,7 @@ async def test_all_forum_threads(bot: commands.Bot) -> None:  # noqa: ARG001
             "type": 11,
             "message_count": 1,
             "member_count": 1,
+            "total_message_sent": 1,
             "rate_limit_per_user": 1,
             "thread_metadata": {
                 "archived": True,
@@ -173,6 +176,7 @@ async def test_all_forum_threads(bot: commands.Bot) -> None:  # noqa: ARG001
             "type": 11,
             "message_count": 1,
             "member_count": 1,
+            "total_message_sent": 1,
             "rate_limit_per_user": 1,
             "thread_metadata": {
                 "archived": True,
@@ -230,6 +234,7 @@ async def test_unarchive_thread_not_archived(bot: commands.Bot) -> None:  # noqa
             "type": 11,
             "message_count": 1,
             "member_count": 1,
+            "total_message_sent": 1,
             "rate_limit_per_user": 1,
             "thread_metadata": {
                 "archived": False,
@@ -272,6 +277,7 @@ async def test_unarchive_thread_archived(bot: commands.Bot) -> None:  # noqa: AR
             "type": 11,
             "message_count": 1,
             "member_count": 1,
+            "total_message_sent": 1,
             "rate_limit_per_user": 1,
             "thread_metadata": {
                 "archived": True,

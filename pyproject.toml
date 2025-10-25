@@ -6,9 +6,9 @@ requires-python = "==3.12.*"
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
-  "aiohttp==3.11.12",
-  "discord-py==2.4.0",
-  "pdfminer-six==20240706",
+  "aiohttp==3.13.1",
+  "discord-py==2.6.4",
+  "pdfminer-six==20250506",
   "urlextract==1.9.0",
 ]
 
@@ -26,19 +26,19 @@ dev = [
   "gitlint==0.19.1",
   "identify==2.6.15",
   "licensecheck==2025.1.0",
-  "mypy==1.15.0",
+  "mypy==1.18.2",
   "packaging==25.0",
   "pre-commit==4.3.0",
-  "pyfakefs==5.7.4",
+  "pyfakefs==5.10.0",
   "pytest==8.4.2",
-  "pytest-cov==6.0.0",
+  "pytest-cov==7.0.0",
   "pytest-custom_exit_code==0.3.0",
-  "ruff==0.14.1",
+  "ruff==0.14.2",
   "shellcheck-py==0.11.0.1",
-  "tombi==0.6.35",
+  "tombi==0.6.38",
   "typos==1.38.1",
   "yamllint==1.37.1",
-  "zizmor==1.15.2",
+  "zizmor==1.16.0",
 ]
 
 [build-system]
