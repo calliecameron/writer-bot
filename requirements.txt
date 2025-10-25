@@ -11,6 +11,8 @@ aiosignal==1.4.0
     # via aiohttp
 attrs==23.2.0
     # via aiohttp
+audioop-lts==0.2.2
+    # via discord-py
 cffi==2.0.0 ; platform_python_implementation != 'PyPy'
     # via cryptography
 charset-normalizer==3.4.4
@@ -43,8 +45,6 @@ propcache==0.4.1
     #   yarl
 pycparser==2.23 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
-typing-extensions==4.15.0
-    # via aiosignal
 uritools==5.0.0
     # via urlextract
 urlextract==1.9.0

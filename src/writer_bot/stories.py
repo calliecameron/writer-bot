@@ -87,7 +87,7 @@ class StoryFile(ABC):
     async def from_message(
         m: discord.Message,
         google_api_key: str,
-    ) -> "StoryFile | None":
+    ) -> StoryFile | None:
         for a in m.attachments:
             at = Attachment.from_attachment(m, a)
             if at:
@@ -132,7 +132,7 @@ class Link(StoryFile):
             raise discord.DiscordException(str(e)) from e
 
     @staticmethod
-    async def from_url(m: discord.Message, url: str) -> "Link | None":
+    async def from_url(m: discord.Message, url: str) -> Link | None:
         try:
             async with (
                 aiohttp.ClientSession() as session,
@@ -173,7 +173,7 @@ class Attachment(StoryFile):
     def from_attachment(
         m: discord.Message,
         attachment: discord.Attachment,
-    ) -> "Attachment | None":
+    ) -> Attachment | None:
         a = Attachment(m, attachment)
         if a.can_wordcount():
             _log.info("can wordcount %s", a.description)
@@ -211,7 +211,7 @@ class GoogleDoc(StoryFile):
         m: discord.Message,
         url: str,
         google_api_key: str,
-    ) -> "GoogleDoc | None":
+    ) -> GoogleDoc | None:
         u = urllib.parse.urlparse(url)
         parts = [part for part in u.path.split("/") if part]
         if (

@@ -9,7 +9,7 @@ if [ ! -e pyproject.toml ]; then
     exit 1
 fi
 
-uv python pin --no-project "$(uv run python "${THIS_DIR}/uv_latest_python.py" '3.12')"
+uv python pin --no-project "$(uv run python "${THIS_DIR}/uv_latest_python.py" '3.14')"
 
 rm -rf .venv
 uv sync --all-extras --all-groups

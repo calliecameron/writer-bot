@@ -2,15 +2,18 @@ import asyncio
 import io
 import logging
 import unittest.mock
-from collections.abc import AsyncIterator
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import discord
 import pytest
-from discord.ext import commands
 from discord.ext.test import backend
 
 from writer_bot import utils
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from discord.ext import commands
 
 # ruff: noqa: S101
 

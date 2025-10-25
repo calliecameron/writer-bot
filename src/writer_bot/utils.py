@@ -2,18 +2,16 @@ import contextvars
 import functools
 import inspect
 import logging
-from collections.abc import AsyncIterator, Callable, Coroutine, MutableMapping
 from contextlib import asynccontextmanager
-from types import TracebackType
-from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Any, ParamSpec, Self, TypeVar
 
 import discord
 
 if TYPE_CHECKING:
-    _LoggerAdapter = logging.LoggerAdapter[logging.Logger]
-else:
-    _LoggerAdapter = logging.LoggerAdapter
+    from collections.abc import AsyncIterator, Callable, Coroutine, MutableMapping
+    from types import TracebackType
 
+_LoggerAdapter = logging.LoggerAdapter[logging.Logger]
 T = TypeVar("T")
 P = ParamSpec("P")
 
@@ -29,7 +27,7 @@ class LogContext:
         self._context = context
         self._old_value: contextvars.Token[str] | None = None
 
-    def __enter__(self) -> "LogContext":
+    def __enter__(self) -> Self:
         if not self._old_value:
             value = _log_context.get()
             value = value + ": " + self._context if value else self._context

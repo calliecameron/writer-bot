@@ -1,13 +1,10 @@
 import unittest.mock
-from collections.abc import AsyncIterator, Iterable
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import discord
 import pytest
 from aioresponses import aioresponses
-from discord.ext import commands
 from discord.ext.test import backend, factories
-from pyfakefs import fake_filesystem
 
 import writer_bot.utils
 from writer_bot.stories import (
@@ -18,6 +15,12 @@ from writer_bot.stories import (
     StoryFile,
     StoryThread,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable
+
+    from discord.ext import commands
+    from pyfakefs import fake_filesystem
 
 # ruff: noqa: ANN401, ARG001, ARG002, PLR2004, S101, SLF001
 
