@@ -17,7 +17,10 @@ else:
 T = TypeVar("T")
 P = ParamSpec("P")
 
-_log_context: contextvars.ContextVar[str] = contextvars.ContextVar("log_context", default="")
+_log_context: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "log_context",
+    default="",
+)
 
 
 class LogContext:
@@ -67,7 +70,9 @@ class Logger(_Logger):
         super().__init__(module.__name__)
 
 
-def logged(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[Any, Any, T]]:
+def logged[**P, T](
+    func: Callable[P, Coroutine[Any, Any, T]],
+) -> Callable[P, Coroutine[Any, Any, T]]:
     @functools.wraps(func)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         log = _Logger(func.__module__)
@@ -81,7 +86,10 @@ def logged(func: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, Coroutine[A
     return wrapper
 
 
-async def respond(interaction: discord.Interaction[discord.Client], embed: discord.Embed) -> None:
+async def respond(
+    interaction: discord.Interaction[discord.Client],
+    embed: discord.Embed,
+) -> None:
     try:
         await interaction.response.send_message(embed=embed)
     except discord.InteractionResponded:
@@ -90,11 +98,17 @@ async def respond(interaction: discord.Interaction[discord.Client], embed: disco
 
 
 async def success(interaction: discord.Interaction[discord.Client], msg: str) -> None:
-    await respond(interaction, discord.Embed(colour=discord.Colour.green(), description=msg))
+    await respond(
+        interaction,
+        discord.Embed(colour=discord.Colour.green(), description=msg),
+    )
 
 
 async def warning(interaction: discord.Interaction[discord.Client], msg: str) -> None:
-    await respond(interaction, discord.Embed(colour=discord.Colour.orange(), description=msg))
+    await respond(
+        interaction,
+        discord.Embed(colour=discord.Colour.orange(), description=msg),
+    )
 
 
 async def error(interaction: discord.Interaction[discord.Client], msg: str) -> None:

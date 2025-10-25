@@ -1,0 +1,4 @@
+{
+  "astGrep.serverPath": ".venv/bin/ast-grep",
+  "shellcheck.executablePath": "${workspaceFolder}/.venv/bin/shellcheck"
+}

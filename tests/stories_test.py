@@ -10,9 +10,16 @@ from discord.ext.test import backend, factories
 from pyfakefs import fake_filesystem
 
 import writer_bot.utils
-from writer_bot.stories import Attachment, GoogleDoc, Link, Profile, StoryFile, StoryThread
+from writer_bot.stories import (
+    Attachment,
+    GoogleDoc,
+    Link,
+    Profile,
+    StoryFile,
+    StoryThread,
+)
 
-# ruff: noqa: ANN401, ARG001, ARG002, E741, PLR2004, S101, SLF001
+# ruff: noqa: ANN401, ARG001, ARG002, PLR2004, S101, SLF001
 
 
 class FakeMessage:
@@ -26,7 +33,7 @@ class FakeStoryFile(StoryFile):
         self,
         *args: Any,
     ) -> None:
-        super().__init__(cast(discord.Message, FakeMessage()), "fake", *args)
+        super().__init__(cast("discord.Message", FakeMessage()), "fake", *args)
 
     async def _download(self) -> bytes:
         return b"foo bar baz\n"
@@ -49,16 +56,28 @@ class TestStoryFile:
         assert not FakeStoryFile("foo", "text/plain", 40 * 1024 * 1024).can_wordcount()
         assert FakeStoryFile("foo", "application/pdf", None).can_wordcount()
         assert FakeStoryFile("foo", "application/pdf", 10).can_wordcount()
-        assert not FakeStoryFile("foo", "application/pdf", 40 * 1024 * 1024).can_wordcount()
+        assert not FakeStoryFile(
+            "foo",
+            "application/pdf",
+            40 * 1024 * 1024,
+        ).can_wordcount()
         assert not FakeStoryFile("foo", "bar", None).can_wordcount()
 
     @pytest.mark.asyncio
     async def test_raw_wordcount(self) -> None:
         with open("testdata/test.txt", mode="rb") as f:  # noqa: ASYNC230
-            assert await FakeStoryFile("foo", "text/plain", 10)._raw_wordcount(f.read()) == 4
+            assert (
+                await FakeStoryFile("foo", "text/plain", 10)._raw_wordcount(f.read())
+                == 4
+            )
 
         with open("testdata/test.pdf", mode="rb") as f:  # noqa: ASYNC230
-            assert await FakeStoryFile("foo", "application/pdf", 10)._raw_wordcount(f.read()) == 229
+            assert (
+                await FakeStoryFile("foo", "application/pdf", 10)._raw_wordcount(
+                    f.read(),
+                )
+                == 229
+            )
 
         with (
             open("testdata/test.txt", mode="rb") as f,  # noqa: ASYNC230
@@ -216,7 +235,8 @@ class TestStoryFile:
             assert s is not None
             assert (
                 s.description
-                == f"message {m.id} attachment http://example.com/test5.txt (text/plain, 12 bytes)"
+                == f"message {m.id} attachment http://example.com/test5.txt "
+                f"(text/plain, 12 bytes)"
             )
 
     @pytest.mark.asyncio
@@ -283,8 +303,8 @@ class TestStoryFile:
             s = await StoryFile.from_message(m, "1234")
             assert s is not None
             assert (
-                s.description
-                == f"message {m.id} link http://example.com/test2.txt (text/plain, 10 bytes)"
+                s.description == f"message {m.id} link http://example.com/test2.txt "
+                f"(text/plain, 10 bytes)"
             )
 
     @pytest.mark.asyncio
@@ -352,7 +372,10 @@ class TestStoryFile:
 
             s = await StoryFile.from_message(m, "1234")
             assert s is not None
-            assert s.description == f"message {m.id} google doc abcd (text/plain, unknown bytes)"
+            assert (
+                s.description
+                == f"message {m.id} google doc abcd (text/plain, unknown bytes)"
+            )
 
 
 class TestLink:
@@ -361,7 +384,7 @@ class TestLink:
         with aioresponses() as m:
             m.get("http://example.com/test.txt", status=200, body="foo bar baz")
             l = Link(
-                cast(discord.Message, FakeMessage()),
+                cast("discord.Message", FakeMessage()),
                 "http://example.com/test.txt",
                 "text/plain",
                 None,
@@ -378,13 +401,13 @@ class TestLink:
                 headers={"content-type": "text/plain", "content-length": "10"},
             )
             l = await Link.from_url(
-                cast(discord.Message, FakeMessage()),
+                cast("discord.Message", FakeMessage()),
                 "http://example.com/test.txt",
             )
             assert l is not None
             assert (
-                l.description
-                == "message 1234 link http://example.com/test.txt (text/plain, 10 bytes)"
+                l.description == "message 1234 link http://example.com/test.txt "
+                "(text/plain, 10 bytes)"
             )
 
         with aioresponses() as m:
@@ -394,7 +417,7 @@ class TestLink:
                 headers={"content-type": "image/jpeg"},
             )
             l = await Link.from_url(
-                cast(discord.Message, FakeMessage()),
+                cast("discord.Message", FakeMessage()),
                 "http://example.com/test.txt",
             )
             assert l is None
@@ -402,10 +425,14 @@ class TestLink:
 
 class TestAttachment:
     @pytest.mark.asyncio
-    async def test_download(self, bot: commands.Bot, fs: fake_filesystem.FakeFilesystem) -> None:
+    async def test_download(
+        self,
+        bot: commands.Bot,
+        fs: fake_filesystem.FakeFilesystem,
+    ) -> None:
         fs.create_file("test.txt", contents="foo bar baz 2")
         a = Attachment(
-            cast(discord.Message, FakeMessage()),
+            cast("discord.Message", FakeMessage()),
             discord.Attachment(
                 state=backend.get_state(),
                 data=factories.make_attachment_dict(  # type: ignore[arg-type]
@@ -422,7 +449,7 @@ class TestAttachment:
 
     def test_from_attachment(self) -> None:
         a = Attachment.from_attachment(
-            cast(discord.Message, FakeMessage()),
+            cast("discord.Message", FakeMessage()),
             discord.Attachment(
                 state=backend.get_state(),
                 data=factories.make_attachment_dict(  # type: ignore[arg-type]
@@ -436,12 +463,12 @@ class TestAttachment:
         )
         assert a is not None
         assert (
-            a.description
-            == "message 1234 attachment http://example.com/test.txt (text/plain, 12 bytes)"
+            a.description == "message 1234 attachment http://example.com/test.txt "
+            "(text/plain, 12 bytes)"
         )
 
         a = Attachment.from_attachment(
-            cast(discord.Message, FakeMessage()),
+            cast("discord.Message", FakeMessage()),
             discord.Attachment(
                 state=backend.get_state(),
                 data=factories.make_attachment_dict(  # type: ignore[arg-type]
@@ -466,30 +493,34 @@ class TestGoogleDoc:
                 status=200,
                 body="foo bar baz",
             )
-            l = GoogleDoc(cast(discord.Message, FakeMessage()), "abcd", "1234")
+            l = GoogleDoc(cast("discord.Message", FakeMessage()), "abcd", "1234")
             data = await l._download()
             assert data.decode(encoding="utf-8").strip() == "foo bar baz"
 
     @pytest.mark.asyncio
     async def test_from_url(self) -> None:
         d = await GoogleDoc.from_url(
-            cast(discord.Message, FakeMessage()),
+            cast("discord.Message", FakeMessage()),
             "https://docs.google.com/document/d/abcd",
             "1234",
         )
         assert d is not None
-        assert d.description == "message 1234 google doc abcd (text/plain, unknown bytes)"
+        assert (
+            d.description == "message 1234 google doc abcd (text/plain, unknown bytes)"
+        )
 
         d = await GoogleDoc.from_url(
-            cast(discord.Message, FakeMessage()),
+            cast("discord.Message", FakeMessage()),
             "https://docs.google.com/document/d/abcd/edit?foo=bar",
             "1234",
         )
         assert d is not None
-        assert d.description == "message 1234 google doc abcd (text/plain, unknown bytes)"
+        assert (
+            d.description == "message 1234 google doc abcd (text/plain, unknown bytes)"
+        )
 
         d = await GoogleDoc.from_url(
-            cast(discord.Message, FakeMessage()),
+            cast("discord.Message", FakeMessage()),
             "http://example.com/test.txt",
             "1234",
         )
@@ -499,7 +530,7 @@ class TestGoogleDoc:
 class TestStoryThread:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "name,expected_name,expected_wordcount",
+        ("name", "expected_name", "expected_wordcount"),
         [
             ("foo bar", "foo bar", 0),
             ("  foo bar [baz]  [100 words]  ", "foo bar [baz]", 100),
@@ -537,11 +568,14 @@ class TestStoryThread:
                 },
             },
         )
-        assert StoryThread(t, "1234")._parse_name() == (expected_name, expected_wordcount)
+        assert StoryThread(t, "1234")._parse_name() == (
+            expected_name,
+            expected_wordcount,
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "name,wordcount,expected,called",
+        ("name", "wordcount", "expected", "called"),
         [
             ("foo bar", 0, "foo bar", False),
             ("foo bar", 10, "foo bar [10 words]", True),
@@ -556,7 +590,7 @@ class TestStoryThread:
         name: str,
         wordcount: int,
         expected: str,
-        called: bool,
+        called: bool,  # noqa: FBT001
     ) -> None:
         u = backend.make_user("user", 1)
         g = backend.make_guild("test")
@@ -588,7 +622,7 @@ class TestStoryThread:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "name,wordcount,expected,called",
+        ("name", "wordcount", "expected", "called"),
         [
             ("foo bar", 0, "foo bar", False),
             ("foo bar", 10, "foo bar [10 words]", True),
@@ -603,7 +637,7 @@ class TestStoryThread:
         name: str,
         wordcount: int,
         expected: str,
-        called: bool,
+        called: bool,  # noqa: FBT001
     ) -> None:
         u = backend.make_user("user", 1)
         g = backend.make_guild("test")
@@ -671,7 +705,11 @@ class TestStoryThread:
             },
         )
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+        async def history(
+            _: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> AsyncIterator[discord.Message]:
             for m in (m1, m2, m3):
                 yield m
 
@@ -710,11 +748,18 @@ class TestStoryThread:
             },
         )
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+        async def history(
+            _: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> AsyncIterator[discord.Message]:
             for m in (m1, m2, m3):
                 yield m
 
-        with unittest.mock.patch.object(discord.Thread, "history", history), aioresponses() as mock:
+        with (
+            unittest.mock.patch.object(discord.Thread, "history", history),
+            aioresponses() as mock,
+        ):
             mock.head(
                 "http://example.com/test1.txt",
                 status=200,
@@ -729,8 +774,8 @@ class TestStoryThread:
 
         assert f is not None
         assert (
-            f.description
-            == f"message {m1.id} link http://example.com/test1.txt (text/plain, 10 bytes)"
+            f.description == f"message {m1.id} link http://example.com/test1.txt "
+            f"(text/plain, 10 bytes)"
         )
 
     @pytest.mark.asyncio
@@ -763,11 +808,18 @@ class TestStoryThread:
             },
         )
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+        async def history(
+            _: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> AsyncIterator[discord.Message]:
             for m in (m1, m2, m3):
                 yield m
 
-        with unittest.mock.patch.object(discord.Thread, "history", history), aioresponses() as mock:
+        with (
+            unittest.mock.patch.object(discord.Thread, "history", history),
+            aioresponses() as mock,
+        ):
             mock.head(
                 "http://example.com/test1.jpg",
                 status=200,
@@ -782,8 +834,8 @@ class TestStoryThread:
 
         assert f is not None
         assert (
-            f.description
-            == f"message {m3.id} link http://example.com/test2.txt (text/plain, 12 bytes)"
+            f.description == f"message {m3.id} link http://example.com/test2.txt "
+            f"(text/plain, 12 bytes)"
         )
 
     @pytest.mark.asyncio
@@ -822,7 +874,11 @@ class TestStoryThread:
             nonlocal output
             output = name
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+        async def history(
+            _: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> AsyncIterator[discord.Message]:
             for m in (m1, m2, m3):
                 yield m
 
@@ -870,7 +926,11 @@ class TestStoryThread:
             nonlocal output
             output = name
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+        async def history(
+            _: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> AsyncIterator[discord.Message]:
             for m in (m1, m2, m3):
                 yield m
 
@@ -925,7 +985,11 @@ class TestStoryThread:
             nonlocal output
             output = name
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+        async def history(
+            _: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> AsyncIterator[discord.Message]:
             for m in (m1, m2, m3):
                 yield m
 
@@ -981,7 +1045,11 @@ class TestStoryThread:
             nonlocal output
             output = name
 
-        async def history(_: Any, *args: Any, **kwargs: Any) -> AsyncIterator[discord.Message]:
+        async def history(
+            _: Any,
+            *args: Any,
+            **kwargs: Any,
+        ) -> AsyncIterator[discord.Message]:
             for m in (m2, m3):
                 yield m
 
@@ -1031,7 +1099,11 @@ class TestProfile:
         async def _all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
             return [t1, t2, t3]
 
-        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", _all_forum_threads):
+        with unittest.mock.patch.object(
+            writer_bot.utils,
+            "all_forum_threads",
+            _all_forum_threads,
+        ):
             t = await Profile(
                 story_user,
                 profile_forum,
@@ -1039,7 +1111,8 @@ class TestProfile:
                 bot_user,
             )._find_profile()
 
-        assert t and t.id == m1.id
+        assert t
+        assert t.id == m1.id
 
     @pytest.mark.asyncio
     async def test_find_profile_none(self, bot: commands.Bot) -> None:
@@ -1056,7 +1129,11 @@ class TestProfile:
         async def _all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
             return [t1]
 
-        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", _all_forum_threads):
+        with unittest.mock.patch.object(
+            writer_bot.utils,
+            "all_forum_threads",
+            _all_forum_threads,
+        ):
             t = await Profile(
                 story_user,
                 profile_forum,
@@ -1097,7 +1174,8 @@ class TestProfile:
                 bot_user,
             )._find_message(t)
 
-        assert m and m.id == m2.id
+        assert m
+        assert m.id == m2.id
 
     @pytest.mark.asyncio
     async def test_find_message_none(self, bot: commands.Bot) -> None:
@@ -1158,7 +1236,11 @@ class TestProfile:
         async def _all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
             return [t1, t2, t3]
 
-        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", _all_forum_threads):
+        with unittest.mock.patch.object(
+            writer_bot.utils,
+            "all_forum_threads",
+            _all_forum_threads,
+        ):
             m = await Profile(
                 story_user,
                 profile_forum,
@@ -1190,7 +1272,11 @@ class TestProfile:
         async def _all_forum_threads(*args: Any, **kwargs: Any) -> list[discord.Thread]:
             return [thread]
 
-        with unittest.mock.patch.object(writer_bot.utils, "all_forum_threads", _all_forum_threads):
+        with unittest.mock.patch.object(
+            writer_bot.utils,
+            "all_forum_threads",
+            _all_forum_threads,
+        ):
             m = await Profile(
                 story_user,
                 profile_forum,
@@ -1199,8 +1285,8 @@ class TestProfile:
             )._generate_content()
 
         assert m == (
-            "This author hasn't posted any stories yet. Links to the stories will appear "
-            "here if they do."
+            "This author hasn't posted any stories yet. Links to the stories will "
+            "appear here if they do."
         )
 
     @pytest.mark.asyncio
@@ -1225,7 +1311,8 @@ class TestProfile:
             [],
         )
 
-        assert edited == "" and sent == ""
+        assert edited == ""
+        assert sent == ""
 
     @pytest.mark.asyncio
     async def test_update_new_message(self, bot: commands.Bot) -> None:
@@ -1257,9 +1344,9 @@ class TestProfile:
             [profile_message_1],
         )
 
+        assert edited == ""
         assert (
-            edited == ""
-            and sent
+            sent
             == f"""Stories by this author:
 
 * [story 1](https://discord.com/channels/{guild.id}/{story_message_1.id})"""
@@ -1302,10 +1389,14 @@ class TestProfile:
             [profile_message_1, profile_message_2],
         )
 
-        assert edited == "" and sent == ""
+        assert edited == ""
+        assert sent == ""
 
     @pytest.mark.asyncio
-    async def test_update_existing_message_different_not_archived(self, bot: commands.Bot) -> None:
+    async def test_update_existing_message_different_not_archived(
+        self,
+        bot: commands.Bot,
+    ) -> None:
         story_user, bot_user, guild, story_forum, profile_forum = self.setup()
 
         story_thread, story_message_1 = self.make_thread(
@@ -1344,12 +1435,15 @@ class TestProfile:
             == f"""Stories by this author:
 
 * [story 1](https://discord.com/channels/{guild.id}/{story_message_1.id})"""
-            and sent == ""
-            and not profile_thread.archived
         )
+        assert sent == ""
+        assert not profile_thread.archived
 
     @pytest.mark.asyncio
-    async def test_update_existing_message_different_archived(self, bot: commands.Bot) -> None:
+    async def test_update_existing_message_different_archived(
+        self,
+        bot: commands.Bot,
+    ) -> None:
         story_user, bot_user, guild, story_forum, profile_forum = self.setup()
 
         story_thread, story_message_1 = self.make_thread(
@@ -1388,9 +1482,9 @@ class TestProfile:
             == f"""Stories by this author:
 
 * [story 1](https://discord.com/channels/{guild.id}/{story_message_1.id})"""
-            and sent == ""
-            and profile_thread.archived
         )
+        assert sent == ""
+        assert profile_thread.archived
 
     def setup(
         self,
@@ -1402,10 +1496,16 @@ class TestProfile:
         discord.ForumChannel,
     ]:
         story_user = backend.make_user("user1", 1)
-        bot_user = cast(discord.ClientUser, backend.make_user("user2", 1))
+        bot_user = cast("discord.ClientUser", backend.make_user("user2", 1))
         guild = backend.make_guild("test")
-        story_forum = cast(discord.ForumChannel, backend.make_text_channel("stories", guild))
-        profile_forum = cast(discord.ForumChannel, backend.make_text_channel("profiles", guild))
+        story_forum = cast(
+            "discord.ForumChannel",
+            backend.make_text_channel("stories", guild),
+        )
+        profile_forum = cast(
+            "discord.ForumChannel",
+            backend.make_text_channel("profiles", guild),
+        )
         return story_user, bot_user, guild, story_forum, profile_forum
 
     def make_thread(
@@ -1492,7 +1592,9 @@ class TestProfile:
         profile_thread: discord.Thread | None,
         profile_thread_messages: Iterable[discord.Message],
     ) -> tuple[str, str]:
-        async def _all_forum_threads(forum: discord.ForumChannel) -> list[discord.Thread]:
+        async def _all_forum_threads(
+            forum: discord.ForumChannel,
+        ) -> list[discord.Thread]:
             if forum.id == story_forum.id:
                 return [story_thread]
             if forum.id == profile_forum.id:
@@ -1509,7 +1611,7 @@ class TestProfile:
 
         async def _thread_edit(
             thread: discord.Thread,
-            archived: bool,
+            archived: bool,  # noqa: FBT001
             *args: Any,
         ) -> discord.Thread:
             thread.archived = archived

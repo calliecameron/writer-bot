@@ -1,6 +1,9 @@
 *~
-/.coverage
 /.deps-installed
-/.env
-/.env.leave
+/.venv/
+/node_modules/
 __pycache__/
+/.ruff_cache/
+/.mypy_cache/
+/.pytest_cache/
+/.coverage

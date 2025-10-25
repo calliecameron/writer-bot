@@ -26,8 +26,8 @@ def test_log_context() -> None:
     log.addHandler(handler)
     logger = utils._Logger(name)  # noqa: SLF001
 
-    # The context is task-local, so interleaved log entries from different tasks should have their
-    # own context.
+    # The context is task-local, so interleaved log entries from different tasks should
+    # have their own context.
 
     async def test1() -> None:
         logger.info("foo")
@@ -196,9 +196,15 @@ async def test_all_forum_threads(bot: commands.Bot) -> None:  # noqa: ARG001
 
     with (
         unittest.mock.patch.object(discord.TextChannel, "threads", threads),
-        unittest.mock.patch.object(discord.TextChannel, "archived_threads", archived_threads),
+        unittest.mock.patch.object(
+            discord.TextChannel,
+            "archived_threads",
+            archived_threads,
+        ),
     ):
-        assert [t.id for t in await utils.all_forum_threads(cast(discord.ForumChannel, c))] == [
+        assert [
+            t.id for t in await utils.all_forum_threads(cast("discord.ForumChannel", c))
+        ] == [
             m1.id,
             m2.id,
             m3.id,
@@ -235,7 +241,7 @@ async def test_unarchive_thread_not_archived(bot: commands.Bot) -> None:  # noqa
 
     async def _thread_edit(
         thread: discord.Thread,
-        archived: bool,
+        archived: bool,  # noqa: FBT001
         *args: Any,  # noqa: ANN401, ARG001
     ) -> discord.Thread:
         thread.archived = archived
@@ -277,7 +283,7 @@ async def test_unarchive_thread_archived(bot: commands.Bot) -> None:  # noqa: AR
 
     async def _thread_edit(
         thread: discord.Thread,
-        archived: bool,
+        archived: bool,  # noqa: FBT001
         *args: Any,  # noqa: ANN401, ARG001
     ) -> discord.Thread:
         thread.archived = archived

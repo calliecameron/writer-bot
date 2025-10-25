@@ -1,0 +1,16 @@
+# Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
+_commit: v0.1.5
+_src_path: https://github.com/calliecameron/copier-template
+author_name: Callie Cameron
+copyright_start_year: '2023'
+exports_requirements_txt: true
+github_repo: calliecameron/writer-bot
+max_python_version: '3.12'
+min_python_version: '3.12'
+project_name: writer-bot
+user_has_css: false
+user_has_html: false
+user_has_javascript: false
+user_is_python_package: true
+user_uses_bats: false
+user_uses_github_actions: true

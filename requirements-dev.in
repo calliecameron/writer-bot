@@ -1,6 +1,0 @@
-aioresponses == 0.7.8
-dpytest == 0.7.0
-mypy == 1.15.0
-pyfakefs == 5.7.4
-pytest-cov == 6.0.0
-ruff == 0.9.6

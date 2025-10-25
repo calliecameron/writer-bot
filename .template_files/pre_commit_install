@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -eu
+
+if [ ! -e pyproject.toml ]; then
+    echo 'Must be run in the root of the project' 1>&2
+    exit 1
+fi
+
+uv run pre-commit install -f
+cp .template_files/pre_push .git/hooks/pre-push

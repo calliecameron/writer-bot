@@ -39,8 +39,8 @@ class StoryFile(ABC):
     @property
     def description(self) -> str:
         return (
-            f"message {self._message_id} {self._kind} {self._url} ({self._content_type}, "
-            f"{self._size if self._size else 'unknown'} bytes)"
+            f"message {self._message_id} {self._kind} {self._url} "
+            f"({self._content_type}, {self._size if self._size else 'unknown'} bytes)"
         )
 
     def can_wordcount(self) -> bool:
@@ -71,7 +71,9 @@ class StoryFile(ABC):
                     return len(pdfminer.high_level.extract_text(b).split())
             except pdfminer.psparser.PSException as e:
                 raise discord.DiscordException(str(e)) from e
-        raise discord.DiscordException(f"can't wordcount content type {self._content_type}")
+        raise discord.DiscordException(
+            f"can't wordcount content type {self._content_type}",
+        )
 
     @staticmethod
     def _rounded_wordcount(wordcount: int) -> int:
@@ -82,7 +84,10 @@ class StoryFile(ABC):
         return round(wordcount, -3)
 
     @staticmethod
-    async def from_message(m: discord.Message, google_api_key: str) -> "StoryFile | None":
+    async def from_message(
+        m: discord.Message,
+        google_api_key: str,
+    ) -> "StoryFile | None":
         for a in m.attachments:
             at = Attachment.from_attachment(m, a)
             if at:
@@ -97,7 +102,7 @@ class StoryFile(ABC):
             if d:
                 return d
 
-            l = await Link.from_url(m, url)  # noqa: E741
+            l = await Link.from_url(m, url)
             if l:
                 return l
 
@@ -116,7 +121,10 @@ class Link(StoryFile):
 
     async def _download(self) -> bytes:
         try:
-            async with aiohttp.ClientSession() as session, session.get(self._url) as response:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.get(self._url) as response,
+            ):
                 data = await response.read()
                 response.raise_for_status()
                 return data
@@ -126,8 +134,11 @@ class Link(StoryFile):
     @staticmethod
     async def from_url(m: discord.Message, url: str) -> "Link | None":
         try:
-            async with aiohttp.ClientSession() as session, session.head(url) as response:
-                l = Link(m, url, response.content_type, response.content_length)  # noqa: E741
+            async with (
+                aiohttp.ClientSession() as session,
+                session.head(url) as response,
+            ):
+                l = Link(m, url, response.content_type, response.content_length)
         except aiohttp.ClientError as e:
             raise discord.DiscordException(str(e)) from e
         if l.can_wordcount():
@@ -138,7 +149,11 @@ class Link(StoryFile):
 
 
 class Attachment(StoryFile):
-    def __init__(self, message: discord.Message, attachment: discord.Attachment) -> None:
+    def __init__(
+        self,
+        message: discord.Message,
+        attachment: discord.Attachment,
+    ) -> None:
         content_type = ""
         if attachment.content_type:
             content_type = attachment.content_type.split(";")[0].strip()
@@ -168,7 +183,12 @@ class Attachment(StoryFile):
 
 
 class GoogleDoc(StoryFile):
-    def __init__(self, message: discord.Message, doc_id: str, google_api_key: str) -> None:
+    def __init__(
+        self,
+        message: discord.Message,
+        doc_id: str,
+        google_api_key: str,
+    ) -> None:
         super().__init__(message, "google doc", doc_id, "text/plain", None)
         self._google_api_key = google_api_key
 
@@ -187,7 +207,11 @@ class GoogleDoc(StoryFile):
             raise discord.DiscordException(str(e)) from e
 
     @staticmethod
-    async def from_url(m: discord.Message, url: str, google_api_key: str) -> "GoogleDoc | None":
+    async def from_url(
+        m: discord.Message,
+        url: str,
+        google_api_key: str,
+    ) -> "GoogleDoc | None":
         u = urllib.parse.urlparse(url)
         parts = [part for part in u.path.split("/") if part]
         if (
@@ -251,7 +275,9 @@ class StoryThread:
         name = self._thread.name
         match = re.fullmatch(r"(.*?)(\[([0-9]+) words\])?\s*", name)
         if not match:
-            raise discord.DiscordException(f"failed to extract title and word count from '{name}'")
+            raise discord.DiscordException(
+                f"failed to extract title and word count from '{name}'",
+            )
         title = ""
         if match.group(1):
             title = match.group(1).strip()
@@ -279,7 +305,9 @@ class Profile:
         self._bot_user = bot_user
 
     async def update(self) -> None:
-        with utils.LogContext(f"profile thread {self._user.id} ({self._user.display_name})"):
+        with utils.LogContext(
+            f"profile thread {self._user.id} ({self._user.display_name})",
+        ):
             try:
                 thread = await self._find_profile()
                 if not thread:
@@ -334,8 +362,8 @@ class Profile:
 
         if not stories:
             return (
-                "This author hasn't posted any stories yet. Links to the stories will appear "
-                "here if they do."
+                "This author hasn't posted any stories yet. Links to the stories will "
+                "appear here if they do."
             )
 
         out = ["Stories by this author:", ""] + [
@@ -412,11 +440,18 @@ class Stories(commands.GroupCog, name="stories"):
     @commands.Cog.listener()
     @utils.logged
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent) -> None:
-        channel = self._bot.get_channel(payload.channel_id) or await self._bot.fetch_channel(
+        channel = self._bot.get_channel(
+            payload.channel_id,
+        ) or await self._bot.fetch_channel(
             payload.channel_id,
         )
-        if isinstance(channel, discord.Thread) and channel.parent_id == self._story_forum.id:
-            m = payload.cached_message or await channel.fetch_message(payload.message_id)
+        if (
+            isinstance(channel, discord.Thread)
+            and channel.parent_id == self._story_forum.id
+        ):
+            m = payload.cached_message or await channel.fetch_message(
+                payload.message_id,
+            )
             if m.author.id == channel.owner_id:
                 await self.process_story(channel)
 
@@ -487,6 +522,11 @@ class Stories(commands.GroupCog, name="stories"):
         self._processing_profiles.add(user_id)
         try:
             user = self._bot.get_user(user_id) or await self._bot.fetch_user(user_id)
-            await Profile(user, self._profile_forum, self._story_forum, self._bot_user).update()
+            await Profile(
+                user,
+                self._profile_forum,
+                self._story_forum,
+                self._bot_user,
+            ).update()
         finally:
             self._processing_profiles.remove(user_id)

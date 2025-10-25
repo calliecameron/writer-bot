@@ -1,24 +1,112 @@
+[project]
+name = "writer-bot"
+version = "0.0.0"
+readme = "README.md"
+requires-python = "==3.12.*"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+  "aiohttp==3.11.12",
+  "discord-py==2.4.0",
+  "pdfminer-six==20240706",
+  "urlextract==1.9.0",
+]
+
+[dependency-groups]
+dev = [
+  "aioresponses==0.7.8",
+  "ast-grep-cli==0.39.6",
+  "bump-my-version==1.2.4",
+  "cookiecutter==2.6.0",
+  "copier==9.10.3",
+  "copier-template-extensions==0.3.3",
+  "dpytest==0.7.0",
+  "frozendict==2.4.6",
+  "gha-update==0.2.0",
+  "gitlint==0.19.1",
+  "identify==2.6.15",
+  "licensecheck==2025.1.0",
+  "mypy==1.15.0",
+  "packaging==25.0",
+  "pre-commit==4.3.0",
+  "pyfakefs==5.7.4",
+  "pytest==8.4.2",
+  "pytest-cov==6.0.0",
+  "pytest-custom_exit_code==0.3.0",
+  "ruff==0.14.1",
+  "shellcheck-py==0.11.0.1",
+  "tombi==0.6.35",
+  "typos==1.38.1",
+  "yamllint==1.37.1",
+  "zizmor==1.15.2",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.4,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.bumpversion]
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = "version = \"{current_version}\""
+replace = "version = \"{new_version}\""
+
+[[tool.bumpversion.files]]
+filename = "src/writer_bot/__init__.py"
+search = "__version__ = \".*\""
+regex = true
+replace = "__version__ = \"{new_version}\""
+
+[tool.coverage.run]
+
 [tool.mypy]
+explicit_package_bases = false
 mypy_path = "stubs"
-python_version = "3.12"
+namespace_packages = true
+pretty = true
+scripts_are_modules = true
+strict = true
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --suppress-no-test-exit-code --cov=writer_bot --cov-report=term-missing"
+markers = ["slow"]
 
 [tool.ruff]
-line-length = 100
-target-version = "py312"
+namespace-packages = [
+  ".template_files",
+]
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "C90",
-    "D",
-    "EM",
-    "FBT",
-    "PLR0913",
-    "PT",
-    "PTH",
-    "TRY003",
+  "C90",  # mccabe:*
+  "D1",  # pydocstyle:undocumented-*
+  "E741",  # pycodestyle:ambiguous-variable-name
+  "EM",  # flake8-errmsg:*
+  "FIX",  # flake8-fixme:*
+  "PLR09",  # refactor:too-many-*
+  "PT011",  # flake8-pytest-style:pytest-raises-too-broad
+  "PTH",  # flake8-use-pathlib:*
+  "PYI025",  # flake8-pyi:unaliased-collections-abc-set-import
+  "S603",  # flake8-bandit:subprocess-without-shell-equals-true
+  "S607",  # flake8-bandit:start-process-with-partial-path
+  "T20",  # flake8-print:*
+  "TD",  # flake8-todos:*
+  "TRY003",  # tryceratops:raise-vanilla-args
+  "TRY301",  # tryceratops:raise-within-try
 ]
 
-[tool.pip-tools]
-generate-hashes = true
-strip-extras = true
+[tool.tombi]
+
+[tool.typos]
+files.extend-exclude = [
+  "/.copier-answers.yml",
+]
+default.extend-ignore-re = [
+  "(?Rm)^.*(#|//)\\s*spellchecker: *disable-line$",
+  "(?s)(#|//)\\s*spellchecker:* off.*?\\n\\s*(#|//)\\s*spellchecker:* on",
+  "(#|//)\\s*spellchecker:* disable-next-line\\n.*",
+]
+
+[tool.uv]
+package = true
