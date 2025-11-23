@@ -3,7 +3,7 @@
 .
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.1
+aiohttp==3.13.2
     # via
     #   discord-py
     #   writer-bot
@@ -35,7 +35,7 @@ multidict==6.7.0
     # via
     #   aiohttp
     #   yarl
-pdfminer-six==20250506
+pdfminer-six==20251107
     # via writer-bot
 platformdirs==4.5.0
     # via urlextract

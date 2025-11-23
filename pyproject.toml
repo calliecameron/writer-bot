@@ -6,39 +6,39 @@ requires-python = "==3.14.*"
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
-  "aiohttp==3.13.1",
+  "aiohttp==3.13.2",
   "discord-py==2.6.4",
-  "pdfminer-six==20250506",
+  "pdfminer-six==20251107",
   "urlextract==1.9.0",
 ]
 
 [dependency-groups]
 dev = [
   "aioresponses==0.7.8",
-  "ast-grep-cli==0.39.6",
+  "ast-grep-cli==0.40.0",
   "bump-my-version==1.2.4",
   "cookiecutter==2.6.0",
-  "copier==9.10.3",
+  "copier==9.11.0",
   "copier-template-extensions==0.3.3",
   "dpytest==0.7.0",
-  "frozendict==2.4.6",
+  "frozendict==2.4.7",
   "gha-update==0.2.0",
   "gitlint==0.19.1",
   "identify==2.6.15",
   "licensecheck==2025.1.0",
   "mypy==1.18.2",
   "packaging==25.0",
-  "pre-commit==4.3.0",
-  "pyfakefs==5.10.0",
-  "pytest==8.4.2",
+  "pre-commit==4.5.0",
+  "pyfakefs==5.10.2",
+  "pytest==9.0.1",
   "pytest-cov==7.0.0",
   "pytest-custom_exit_code==0.3.0",
-  "ruff==0.14.2",
+  "ruff==0.14.6",
   "shellcheck-py==0.11.0.1",
-  "tombi==0.6.38",
-  "typos==1.38.1",
+  "tombi==0.6.53",
+  "typos==1.39.2",
   "yamllint==1.37.1",
-  "zizmor==1.16.0",
+  "zizmor==1.16.3",
 ]
 
 [build-system]
@@ -67,8 +67,13 @@ pretty = true
 scripts_are_modules = true
 strict = true
 
-[tool.pytest.ini_options]
-addopts = "--strict-markers --suppress-no-test-exit-code --cov=writer_bot --cov-report=term-missing"
+[tool.pytest]
+addopts = [
+  "--strict-markers",
+  "--suppress-no-test-exit-code",
+  "--cov=writer_bot",
+  "--cov-report=term-missing",
+]
 markers = ["slow"]
 
 [tool.ruff]
