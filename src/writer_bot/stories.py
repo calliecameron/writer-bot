@@ -470,8 +470,13 @@ class Stories(commands.GroupCog, name="stories"):
 
         try:
             await interaction.response.defer()
-            await self.process_all_stories()
-            await utils.success(interaction, "Finished refreshing stories.")
+            if not await self.process_all_stories():
+                await utils.error(
+                    interaction,
+                    "Some stories failed to refresh; see the log for details.",
+                )
+            else:
+                await utils.success(interaction, "Finished refreshing stories.")
         finally:
             self._processing_refresh = False
 
@@ -502,9 +507,18 @@ class Stories(commands.GroupCog, name="stories"):
     async def before_refresh_cron(self) -> None:
         await self._bot.wait_until_ready()
 
-    async def process_all_stories(self) -> None:
+    async def process_all_stories(self) -> bool:
+        failures = 0
         for thread in await utils.all_forum_threads(self._story_forum):
-            await self.process_story(thread)
+            try:
+                await self.process_story(thread)
+            except discord.DiscordException as e:
+                _log.error(str(e))
+                failures += 1
+        if failures > 0:
+            _log.error(f"{failures} stories failed to refresh")
+            return False
+        return True
 
     async def process_story(self, thread: discord.Thread) -> None:
         if thread.id in self._processing_stories:
