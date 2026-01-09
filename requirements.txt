@@ -3,7 +3,7 @@
 .
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.2
+aiohttp==3.13.3
     # via
     #   discord-py
     #   writer-bot
@@ -21,7 +21,7 @@ cryptography==46.0.3
     # via pdfminer-six
 discord-py==2.6.4
     # via writer-bot
-filelock==3.20.1
+filelock==3.20.2
     # via urlextract
 frozenlist==1.8.0
     # via
@@ -35,7 +35,7 @@ multidict==6.7.0
     # via
     #   aiohttp
     #   yarl
-pdfminer-six==20251107
+pdfminer-six==20260107
     # via writer-bot
 platformdirs==4.5.1
     # via urlextract
@@ -45,7 +45,7 @@ propcache==0.4.1
     #   yarl
 pycparser==2.23 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
     # via cffi
-uritools==5.0.0
+uritools==6.0.1
     # via urlextract
 urlextract==1.9.0
     # via writer-bot

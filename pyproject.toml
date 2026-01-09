@@ -6,17 +6,17 @@ requires-python = "==3.14.*"
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = [
-  "aiohttp==3.13.2",
+  "aiohttp==3.13.3",
   "discord-py==2.6.4",
-  "pdfminer-six==20251107",
+  "pdfminer-six==20260107",
   "urlextract==1.9.0",
 ]
 
 [dependency-groups]
 dev = [
   "aioresponses==0.7.8",
-  "ast-grep-cli==0.40.3",
-  "bump-my-version==1.2.5",
+  "ast-grep-cli==0.40.4",
+  "bump-my-version==1.2.6",
   "cookiecutter==2.6.0",
   "copier==9.11.0",
   "copier-template-extensions==0.3.3",
@@ -29,16 +29,16 @@ dev = [
   "mypy==1.19.1",
   "packaging==25.0",
   "pre-commit==4.5.1",
-  "pyfakefs==5.10.2",
+  "pyfakefs==6.0.0",
   "pytest==9.0.2",
   "pytest-cov==7.0.0",
   "pytest-custom_exit_code==0.3.0",
-  "ruff==0.14.9",
+  "ruff==0.14.11",
   "shellcheck-py==0.11.0.1",
-  "tombi==0.7.7",
-  "typos==1.40.0",
+  "tombi==0.7.16",
+  "typos==1.42.0",
   "yamllint==1.37.1",
-  "zizmor==1.18.0",
+  "zizmor==1.20.0",
 ]
 
 [build-system]
